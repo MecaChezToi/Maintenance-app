@@ -25,8 +25,8 @@ export const metadata: Metadata = {
     title: 'FixOps',
   },
   icons: {
-    icon: '/icon-192.png',
-    apple: '/icon-192.png',
+    icon: '/icons/icon-192.png',
+    apple: '/icons/icon-192.png',
   },
 }
 
