@@ -2,7 +2,11 @@
 // FIXOPS — Types TypeScript
 // ============================================================
 
-export type UserRole = 'admin' | 'chef' | 'technician'
+export type UserRole =
+  | 'admin'
+  | 'manager'
+  | 'chef'
+  | 'technician'
 export type EqStatus = 'ok' | 'panne' | 'maintenance'
 export type IntStatus = 'a_faire' | 'en_cours' | 'termine' | 'valide'
 export type Priority = 'normale' | 'haute' | 'critique'
@@ -156,8 +160,10 @@ export interface SiteConfig {
 // ─── CONSTANTES UI ──────────────────────────────────────────
 export const ROLE_CONFIG: Record<UserRole, { label: string; color: string }> = {
   admin:      { label: 'Administrateur', color: '#e8643c' },
-  chef:       { label: 'Chef technique',  color: '#a855f7' },
-  technician: { label: 'Technicien',      color: '#3c82e8' },
+  manager:    { label: 'Manager',        color: '#14b8a6' },
+  chef:       { label: 'Chef technique', color: '#a855f7' },
+  technician: { label: 'Technicien',     color: '#3c82e8' },
+}
 }
 
 export const STATUS_CONFIG: Record<IntStatus, { label: string; color: string; bg: string }> = {

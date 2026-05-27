@@ -690,7 +690,9 @@ export default function PlanPage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
-  const canManage = user?.role === 'admin' || user?.role === 'chef'
+const canManage =
+  user?.role === 'admin' ||
+  user?.role === 'manager'
 
   const load = async () => {
     setLoading(true)
@@ -733,7 +735,15 @@ export default function PlanPage() {
     return grouped
   }, [filtered])
 
-  if (!user) return null
+  if (!user) {
+  return (
+    <AppLayout>
+      <div className="empty-state">
+        <span>Chargement utilisateur...</span>
+      </div>
+    </AppLayout>
+  )
+}
 
   const handleAddEquipment = async (payload: Partial<Equipment>, files: File[]) => {
     setError(null)
