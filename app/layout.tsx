@@ -16,26 +16,26 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'FixOps — GMAO',
-  description: 'Gestion de maintenance industrielle — Industrie alimentaire',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'FixOps',
-  },
-  icons: {
-    icon: '/icons/icon-192.png',
-    apple: '/icons/icon-192.png',
-  },
+title: 'MaintaFood — GMAO',
+description: 'Gestion de maintenance industrielle · Industrie alimentaire · IFS BRC ISO 22000',
+manifest: '/manifest.json',
+appleWebApp: {
+capable: true,
+statusBarStyle: 'black-translucent',
+title: 'MaintaFood',
+},
+icons: {
+icon: '/icons/icon-192.png',
+apple: '/icons/icon-192.png',
+},
 }
 
 export const viewport: Viewport = {
-  themeColor: '#00c896',
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+themeColor: '#22c55e',
+width: 'device-width',
+initialScale: 1,
+maximumScale: 1,
+userScalable: false,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
