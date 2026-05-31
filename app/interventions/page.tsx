@@ -3,12 +3,136 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/components/layout/AuthProvider'
 import AppLayout from '@/components/layout/AppLayout'
-import { interventionsApi, equipmentsApi, auditApi, photosApi, profilesApi } from '@/lib/supabase'
-import type { Intervention, Equipment, Profile } from '@/types'
+import { interventionsApi, equipmentsApi, auditApi, photosApi, profilesApi, siteConfigApi } from '@/lib/supabase'
+import type { Intervention, Equipment, Profile, SiteConfig } from '@/types'
 import { STATUS_CONFIG, PRIORITY_CONFIG, EQ_STATUS_CONFIG } from '@/types'
 
 const fmt   = (d: string) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
 const fmtDT = (d: string) => d ? new Date(d).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—'
+
+const openPdf = (interv: Intervention, cfg: SiteConfig | null) => {
+  const equipmentName = (interv.equipment as any)?.name || '—'
+  const techName = (interv.technician as any)?.name || '—'
+  const creatorName = (interv.creator as any)?.name || '—'
+  const html = `
+  <html><head><meta charset="utf-8" /><title>Rapport ${interv.id}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Outfit',sans-serif;background:#fff;color:#111}
+    .wrap{padding:36px}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:3px solid #00c896}
+    .logo{font-size:20px;font-weight:800;color:#00c896}
+    .mut{font-size:10px;color:#777}
+    .sec{margin-bottom:18px}
+    .st{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #eee}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .f{background:#f8f9fa;border-radius:8px;padding:11px}
+    .fl{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+    .fv{font-size:13px;font-weight:700;color:#111}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700}
+    .b-ok{background:rgba(0,200,150,.12);color:#00c896}
+    .b-w{background:rgba(255,165,2,.12);color:#ffa502}
+    .b-r{background:rgba(255,71,87,.12);color:#ff4757}
+    .txt{white-space:pre-wrap;line-height:1.6;font-size:13px;color:#222}
+    .sign{border:1px solid #ddd;border-radius:10px;padding:16px;text-align:center}
+    .sign .nm{font-size:18px;font-weight:800;color:#00c896;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;margin:8px 0}
+    @media print{@page{margin:12mm}}
+  </style></head><body>
+    <div class="wrap">
+      <div class="hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <div class="logo">FixOps</div>
+          </div>
+          <div class="mut">RAPPORT D'INTERVENTION — GMAO</div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:#666;line-height:1.6">
+          <div style="font-weight:800;font-size:12px;color:#111">${cfg?.name || ''}</div>
+          <div>${cfg?.address || ''}</div>
+          <div>${cfg?.siret ? `SIRET : ${cfg.siret}` : ''}</div>
+          <div style="color:#00c896;font-weight:700;margin-top:2px">${cfg?.certifications || ''}</div>
+        </div>
+      </div>
+
+      <div style="font-size:18px;font-weight:900;margin-bottom:10px">${interv.title}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+        <span class="badge b-ok">● ${interv.status}</span>
+        <span class="badge b-w">● ${interv.priority}</span>
+        ${interv.production_stopped ? '<span class="badge b-r">⚠ Production arrêtée</span>' : ''}
+        ${interv.food_impact ? '<span class="badge b-w">🛡 Impact alimentaire</span>' : ''}
+      </div>
+
+      <div class="sec">
+        <div class="st">Informations</div>
+        <div class="grid">
+          <div class="f"><div class="fl">Équipement</div><div class="fv">${equipmentName}</div></div>
+          <div class="f"><div class="fl">Créé le</div><div class="fv">${new Date(interv.created_at).toLocaleString('fr-FR')}</div></div>
+          <div class="f"><div class="fl">Créé par</div><div class="fv">${creatorName}</div></div>
+          <div class="f"><div class="fl">Technicien</div><div class="fv">${techName}</div></div>
+        </div>
+      </div>
+
+      ${interv.description ? `
+      <div class="sec">
+        <div class="st">Description</div>
+        <div class="txt">${interv.description}</div>
+      </div>` : ''}
+
+      <div class="sec">
+        <div class="st">Rapport</div>
+        <div class="grid">
+          <div class="f"><div class="fl">Durée</div><div class="fv">${interv.report_duration ?? '—'} min</div></div>
+          <div class="f"><div class="fl">Verdict</div><div class="fv">${interv.report_verdict ?? '—'}</div></div>
+        </div>
+        <div style="height:12px"></div>
+        <div class="grid">
+          <div class="f"><div class="fl">Hygiène</div><div class="fv">${interv.report_hygiene ? 'Oui' : 'Non'}</div></div>
+          <div class="f"><div class="fl">Nettoyage</div><div class="fv">${interv.report_cleaning ? 'Oui' : 'Non'}</div></div>
+        </div>
+        <div style="height:12px"></div>
+        <div class="f">
+          <div class="fl">Travaux effectués</div>
+          <div class="txt">${interv.report_actions ?? ''}</div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="f">
+          <div class="fl">Observations</div>
+          <div class="txt">${interv.report_observations ?? ''}</div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="st">Signature</div>
+        <div class="grid">
+          <div class="sign">
+            <div class="mut">Technicien responsable</div>
+            <div class="nm">${techName}</div>
+            <div class="mut">${interv.signed_at ? new Date(interv.signed_at).toLocaleString('fr-FR') : ''}</div>
+          </div>
+          <div class="f" style="background:#f8fffe;border:1px solid rgba(0,200,150,.18)">
+            <div class="fl">Certification</div>
+            <div style="font-size:12px;color:#555;line-height:1.6">
+              Je certifie que les informations sont exactes et que les procédures de sécurité alimentaire ont été respectées.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:28px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#aaa">
+        <span>FixOps GMAO · Généré le ${new Date().toLocaleString('fr-FR')}</span>
+        <span>${cfg?.certifications || ''}</span>
+        <span>Page 1/1</span>
+      </div>
+    </div>
+  </body></html>`
+
+  const win = window.open('', '_blank')
+  if (!win) return
+  win.document.write(html)
+  win.document.close()
+  setTimeout(() => win.print(), 400)
+}
 
 // ─── REPORT FORM (4 étapes) ─────────────────────────────────
 function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
@@ -320,6 +444,7 @@ export default function InterventionsPage() {
   const [interventions, setInterventions] = useState<Intervention[]>([])
   const [equipments, setEquipments] = useState<Equipment[]>([])
   const [technicians, setTechnicians] = useState<Profile[]>([])
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [showNew, setShowNew] = useState(false)
@@ -329,10 +454,11 @@ export default function InterventionsPage() {
   const [toast, setToast] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const [ints, eqs, profiles] = await Promise.all([interventionsApi.getAll(), equipmentsApi.getAll(), profilesApi.getAll()])
+    const [ints, eqs, profiles, cfg] = await Promise.all([interventionsApi.getAll(), equipmentsApi.getAll(), profilesApi.getAll(), siteConfigApi.get()])
     setInterventions(ints)
     setEquipments(eqs)
     setTechnicians(profiles.filter(profile => profile.role === 'technician'))
+    setSiteConfig(cfg)
     setLoading(false)
   }, [])
 
@@ -491,6 +617,15 @@ export default function InterventionsPage() {
                   <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 8 }}>{selected.report_actions}</div>
                   <div style={{ fontSize: 12, color: 'var(--t2)' }}>Verdict : <strong>{selected.report_verdict}</strong> · Durée : {selected.report_duration} min</div>
                   <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>Signé le {fmtDT(selected.signed_at || '')}</div>
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => openPdf(selected, siteConfig)}
+                      style={{ borderColor: 'rgba(0,200,150,.25)', color: '#00c896' }}
+                    >
+                      Imprimer / PDF
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
