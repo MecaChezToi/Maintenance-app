@@ -24,11 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Timeout de sécurité : si Supabase ne répond pas en 5s, on débloque quand même
+    // Timeout réduit à 1.5s — suffisant pour Supabase
     const timeout = setTimeout(() => {
-      console.warn('[Auth] Timeout — Supabase ne répond pas. Vérifiez les variables d\'env.')
       setLoading(false)
-    }, 5000)
+    }, 1500)
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout)
@@ -43,33 +42,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (profile) {
             sessionStorage.setItem(`profile:${session.user.id}`, JSON.stringify(profile))
             setUser(profile)
-          } else {
-            // Essayer de créer le profil manquant via l'API
-            try {
-              const res = await fetch('/api/profile/ensure', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session.access_token}` },
-              })
-              if (res.ok) {
-                const ensured = await res.json()
-                if (ensured?.id) {
-                  sessionStorage.setItem(`profile:${session.user.id}`, JSON.stringify(ensured))
-                  setUser(ensured)
-                }
-              }
-            } catch (e) {
-              console.error('[Auth] Impossible de créer le profil:', e)
-            }
           }
         } catch (e) {
-          console.error('[Auth] Erreur chargement profil:', e)
           setUser(null)
         }
       }
       setLoading(false)
-    }).catch((e) => {
+    }).catch(() => {
       clearTimeout(timeout)
-      console.error('[Auth] Erreur getSession:', e)
       setLoading(false)
     })
 
