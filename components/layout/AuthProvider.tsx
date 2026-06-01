@@ -18,46 +18,63 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 })
 
+// Race entre Supabase et un timeout
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>(resolve => setTimeout(() => resolve(null), ms))
+  ])
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null)
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Timeout réduit à 1.5s — suffisant pour Supabase
-    const timeout = setTimeout(() => {
-      setLoading(false)
-    }, 1500)
+    const init = async () => {
+      try {
+        // Race : Supabase a 3 secondes max pour répondre
+        const result = await withTimeout(supabase.auth.getSession(), 3000)
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      clearTimeout(timeout)
-      setSession(session)
-      if (session?.user) {
-        try {
+        if (result === null) {
+          // Timeout — on débloque sans session
+          console.warn('[Auth] getSession timeout')
+          setLoading(false)
+          return
+        }
+
+        const { data: { session } } = result
+        setSession(session)
+
+        if (session?.user) {
+          // Cache local d'abord pour affichage instantané
           const cached = sessionStorage.getItem(`profile:${session.user.id}`)
           if (cached) {
             try { setUser(JSON.parse(cached)) } catch {}
           }
-          const profile = await profilesApi.getById(session.user.id)
+
+          // Chargement profil avec timeout aussi
+          const profile = await withTimeout(profilesApi.getById(session.user.id), 3000)
           if (profile) {
             sessionStorage.setItem(`profile:${session.user.id}`, JSON.stringify(profile))
             setUser(profile)
           }
-        } catch (e) {
-          setUser(null)
         }
+      } catch (e) {
+        console.error('[Auth] Erreur init:', e)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
-    }).catch(() => {
-      clearTimeout(timeout)
-      setLoading(false)
-    })
+    }
+
+    init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       if (session?.user) {
         try {
-          const profile = await profilesApi.getById(session.user.id)
+          const profile = await withTimeout(profilesApi.getById(session.user.id), 3000)
           if (profile) {
             sessionStorage.setItem(`profile:${session.user.id}`, JSON.stringify(profile))
             setUser(profile)
@@ -73,10 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    return () => {
-      clearTimeout(timeout)
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [])
 
   const signIn = async (email: string, password: string) => {
