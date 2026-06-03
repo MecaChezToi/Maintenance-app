@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { supabase, profilesApi, organizationsApi } from '@/lib/supabase'
 import type { Profile, Organization } from '@/types'
 
@@ -24,6 +24,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const keepAliveRef = useRef<NodeJS.Timeout | null>(null)
+
+  // ─── Keep-alive : ping toutes les 4 min ──────────────────
+  const startKeepAlive = () => {
+    if (keepAliveRef.current) clearInterval(keepAliveRef.current)
+    keepAliveRef.current = setInterval(() => {
+      supabase.from('profiles').select('id').limit(1)
+        .then(() => {})
+        .catch(() => {})
+    }, 4 * 60 * 1000)
+  }
+
+  const stopKeepAlive = () => {
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current)
+      keepAliveRef.current = null
+    }
+  }
 
   const loadProfile = async (userId: string, accessToken: string) => {
     // Cache immédiat
@@ -34,23 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cachedOrg) setOrganization(JSON.parse(cachedOrg))
     } catch {}
 
-    // Charger depuis Supabase
     try {
       const profile = await profilesApi.getById(userId)
       if (profile) {
         sessionStorage.setItem(`profile:${userId}`, JSON.stringify(profile))
         setUser(profile)
-
-        // Charger l'organisation
         const org = await organizationsApi.getCurrent()
         if (org) {
           sessionStorage.setItem(`org:${userId}`, JSON.stringify(org))
           setOrganization(org)
         }
+        startKeepAlive() // Démarrer le keep-alive dès que connecté
         return
       }
-
-      // Profil manquant — créer via API
+      // Profil manquant
       const res = await fetch('/api/profile/ensure', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}` },
@@ -60,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (ensured?.id) {
           sessionStorage.setItem(`profile:${userId}`, JSON.stringify(ensured))
           setUser(ensured)
+          startKeepAlive()
         }
       }
     } catch (e) {
@@ -68,7 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // onAuthStateChange EN PREMIER — capture login/logout/refresh
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
       if (session?.user) {
@@ -77,11 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
         setOrganization(null)
         sessionStorage.clear()
+        stopKeepAlive()
       }
       setLoading(false)
     })
 
-    // Vérifier session existante
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         setSession(session)
@@ -90,12 +105,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }).catch(() => setLoading(false))
 
-    // Timeout sécurité
     const t = setTimeout(() => setLoading(false), 4000)
 
     return () => {
       subscription.unsubscribe()
       clearTimeout(t)
+      stopKeepAlive()
     }
   }, [])
 
@@ -105,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
+    stopKeepAlive()
     await supabase.auth.signOut()
     setUser(null)
     setOrganization(null)
