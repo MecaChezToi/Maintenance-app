@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/layout/AuthProvider'
+import { MaintaFoodLogo } from '@/components/MaintaFoodLogo'
 import { ROLE_CONFIG } from '@/types'
 
 const NAV_ITEMS = [
@@ -48,7 +49,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading) return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080909' }}>
-      <div style={{ color: '#00c896', fontSize: 13, fontFamily: 'var(--font-mono)' }}>Chargement…</div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <MaintaFoodLogo size="lg" />
+        <div style={{ color: '#00c896', fontSize: 12, fontFamily: 'var(--font-mono)', opacity: .6 }}>Chargement…</div>
+      </div>
     </div>
   )
 
@@ -57,7 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div style={{ width: '100%', maxWidth: 420, background: '#0f1012', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, padding: 18 }}>
         <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Session détectée, profil manquant</div>
         <div style={{ fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 14 }}>
-          L’application n’arrive pas à charger votre profil. Cliquez sur “Reconnexion”.
+          L'application n'arrive pas à charger votre profil. Cliquez sur "Reconnexion".
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn btn-ghost" onClick={() => router.replace('/auth')}>Reconnexion</button>
@@ -79,15 +83,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         display: 'flex', flexDirection: 'column',
       }} className="hide-mobile">
         {/* Logo */}
-        <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-            background: 'rgba(0,200,150,.12)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 6,
-          }}>
-            <span style={{ fontSize: 18 }}>⚙️</span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#00c896', letterSpacing: '-.3px' }}>FixOps</span>
-          </div>
-          <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: '#3a4055', marginTop: 4, paddingLeft: 2, textTransform: 'uppercase', letterSpacing: '.6px' }}>
+        <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+          <MaintaFoodLogo size="md" />
+          <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: '#3a4055', marginTop: 5, textTransform: 'uppercase', letterSpacing: '.6px' }}>
             GMAO Platform
           </div>
         </div>
@@ -144,7 +142,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           display: 'flex', alignItems: 'center', padding: '0 16px', gap: 12,
         }}>
           <div style={{ flex: 1, fontWeight: 700, fontSize: 15 }}>
-            {visibleNav.find(n => pathname.startsWith(n.href))?.label || 'FixOps'}
+            {visibleNav.find(n => pathname.startsWith(n.href))?.label || 'MaintaFood'}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
