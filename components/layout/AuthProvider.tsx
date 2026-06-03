@@ -30,9 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const startKeepAlive = () => {
     if (keepAliveRef.current) clearInterval(keepAliveRef.current)
     keepAliveRef.current = setInterval(() => {
-      supabase.from('profiles').select('id').limit(1)
-        .then(() => {})
-        .catch(() => {})
+      supabase.from('profiles').select('id').limit(1).then(() => {}, () => {})
     }, 4 * 60 * 1000)
   }
 
