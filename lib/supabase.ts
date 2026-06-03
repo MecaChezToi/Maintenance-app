@@ -96,7 +96,7 @@ export const equipmentsApi = {
     // Sélection minimale — pas de jointures lourdes sur la liste
     const { data } = await supabase
       .from('equipments')
-      .select('id,name,location,zone,category,status,serial,color,pos_x,pos_y,pos_w,pos_h,food_safe,last_inspection,next_inspection,next_preventive,preventive_interval_days,created_at,updated_at,organization_id')
+      .select('id,name,location,zone,category,status,serial,color,pos_x,pos_y,pos_w,pos_h,food_safe,last_inspection,next_inspection,next_preventive,preventive_interval_days,schema_desc,manual_ref,created_at,updated_at,organization_id')
       .order('name')
     return data ?? []
   },
