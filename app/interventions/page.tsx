@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/components/layout/AuthProvider'
 import AppLayout from '@/components/layout/AppLayout'
-import { interventionsApi, equipmentsApi, auditApi, photosApi, profilesApi, partsApi, siteConfigApi } from '@/lib/supabase'
+import { interventionsApi, auditApi, photosApi, partsApi } from '@/lib/supabase'
+import { useData } from '@/lib/DataStore'
 import type { Intervention, Equipment, Profile, Part, SiteConfig } from '@/types'
 import { STATUS_CONFIG, PRIORITY_CONFIG, EQ_STATUS_CONFIG } from '@/types'
 
@@ -521,11 +522,10 @@ function NewIntModal({ equipments, technicians, user, onClose, onSave, error }: 
 // ─── PAGE PRINCIPALE ─────────────────────────────────────────
 export default function InterventionsPage() {
   const { user } = useAuth()
-  const [interventions, setInterventions] = useState<Intervention[]>([])
-  const [equipments, setEquipments] = useState<Equipment[]>([])
-  const [technicians, setTechnicians] = useState<Profile[]>([])
-  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
-  const [loading, setLoading] = useState(true)
+  const {
+    interventions, equipments, technicians, siteConfig, loading,
+    updateIntervention, addIntervention, reloadInterventions
+  } = useData()
   const [filter, setFilter] = useState('all')
   const [showNew, setShowNew] = useState(false)
   const [selected, setSelected] = useState<Intervention | null>(null)
@@ -544,35 +544,10 @@ export default function InterventionsPage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
-  // Chargement initial complet (une seule fois)
-  useEffect(() => {
-    let active = true
-    const init = async () => {
-      // Interventions en premier — visible immédiatement
-      const ints = await interventionsApi.getAll()
-      if (!active) return
-      setInterventions(ints)
-      setLoading(false)
-      // Reste en arrière-plan
-      const [eqs, profiles, cfg] = await Promise.all([
-        equipmentsApi.getAll(),
-        profilesApi.getAll(),
-        siteConfigApi.get(),
-      ])
-      if (!active) return
-      setEquipments(eqs)
-      setTechnicians(profiles.filter(p => p.role === 'technician'))
-      setSiteConfig(cfg)
-    }
-    init()
-    return () => { active = false }
-  }, [])
-
-  // Rechargement léger — interventions seulement
+  // Rechargement léger depuis le DataStore
   const load = useCallback(async () => {
-    const ints = await interventionsApi.getAll()
-    setInterventions(ints)
-  }, [])
+    await reloadInterventions()
+  }, [reloadInterventions])
 
   if (!user) return null
 
@@ -586,10 +561,9 @@ export default function InterventionsPage() {
   }
 
   const updateStatus = async (interv: Intervention, status: 'a_faire' | 'en_cours' | 'termine' | 'valide') => {
-    // Optimiste — UI immédiate
-    setInterventions(prev => prev.map(i => i.id === interv.id ? { ...i, status } : i))
+    // Optimiste via DataStore
+    updateIntervention(interv.id, { status })
     setSelected(prev => prev?.id === interv.id ? { ...prev, status } : prev)
-    // Sync Supabase en arrière-plan
     interventionsApi.updateStatus(interv.id, status)
     auditApi.log(user.id, 'Statut modifié', interv.title, `→ ${STATUS_CONFIG[status].label}`)
   }
@@ -598,7 +572,7 @@ export default function InterventionsPage() {
     setError(null)
     try {
       const created = await interventionsApi.create(payload)
-      if (created) setInterventions(prev => [created, ...prev])
+      if (created) addIntervention(created)
       showToast('Intervention créée')
       auditApi.log(user.id, 'Intervention créée', payload.title || '', '')
       setShowNew(false)
@@ -768,7 +742,7 @@ export default function InterventionsPage() {
       )}
 
       {showNew && <NewIntModal equipments={equipments} technicians={technicians} user={user} error={error} onClose={() => { setShowNew(false); setError(null) }} onSave={createIntervention} />}
-      {selected && showReport && <ReportForm interv={selected} equipment={equipments.find(e => e.id === selected.equipment_id)} user={user} onSave={() => { setShowReport(false); load() }} onClose={() => setShowReport(false)} />}
+      {selected && showReport && <ReportForm interv={selected} equipment={equipments.find(e => e.id === selected.equipment_id)} user={user} onSave={async () => { setShowReport(false); await reloadInterventions() }} onClose={() => setShowReport(false)} />}
     </AppLayout>
   )
 }

@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import { useAuth } from '@/components/layout/AuthProvider'
-import { partsApi, interventionsApi, auditApi } from '@/lib/supabase'
+import { partsApi, auditApi } from '@/lib/supabase'
+import { useData } from '@/lib/DataStore'
 import type { Part } from '@/types'
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -452,9 +453,7 @@ function AddPartModal({ onClose, onSave }: { onClose: () => void; onSave: (part:
 // ─── MAIN PAGE ────────────────────────────────────────────────
 export default function StorePage() {
   const { user } = useAuth()
-  const [stock, setStock] = useState<Part[]>([])
-  const [moves, setMoves] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { parts: stock, interventions: allInterventions, loading } = useData()
   const [selected, setSelected] = useState<Part | null>(null)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('all')
@@ -467,12 +466,9 @@ export default function StorePage() {
   if (!user) return null
   const canEdit = user.role === 'admin' || user.role === 'chef'
 
-  const load = useCallback(async () => {
-    const parts = await partsApi.getAll()
-    setStock(parts)
-    // Charger l'historique des mouvements depuis les interventions
-    const ints = await interventionsApi.getAll()
-    const mvs = ints.flatMap((i: any) =>
+  // Mouvements calculés depuis les interventions du DataStore
+  const moves = useMemo(() =>
+    allInterventions.flatMap((i: any) =>
       (i.parts_used || []).map((p: any) => ({
         partName: p.part?.name || '—',
         qty: -(p.qty_used || 1),
@@ -481,11 +477,9 @@ export default function StorePage() {
         ot: i.title,
       }))
     ).sort((a: any, b: any) => b.date > a.date ? 1 : -1)
-    setMoves(mvs)
-    setLoading(false)
-  }, [])
+  , [allInterventions])
 
-  useEffect(() => { load() }, [load])
+  const load = async () => { /* DataStore gère le rechargement */ }
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 768px)')
     const apply = () => setIsMobile(mql.matches)
@@ -521,6 +515,8 @@ export default function StorePage() {
     setMoves(m => [{ partName: showAdj.name, qty: delta, date: today(), tech: user.name.split(' ')[0], ot: reason }, ...m])
     // Persistance Supabase
     await partsApi.adjustStock(showAdj.id, newQty)
+    // Forcer refresh local du stock
+    const updated = stock.map(p => p.id === showAdj.id ? { ...p, qty: newQty } : p)
     await auditApi.log(user.id, delta > 0 ? 'Réception stock' : delta < 0 ? 'Consommation stock' : 'Inventaire', showAdj.name, `${delta > 0 ? '+' : ''}${delta} ${showAdj.unit} · ${reason}`)
     setShowAdj(null)
     showToast(delta < 0 ? `${Math.abs(delta)} ${showAdj.unit} prélevé(s)` : `+${delta} ${showAdj.unit} ajouté(s)`)

@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/layout/AuthProvider'
+import { useData } from '@/lib/DataStore'
 import AppLayout from '@/components/layout/AppLayout'
-import { equipmentsApi, interventionsApi, partsApi, siteConfigApi } from '@/lib/supabase'
 import type { Equipment, Intervention, Part, SiteConfig } from '@/types'
 import { STATUS_CONFIG, PRIORITY_CONFIG } from '@/types'
 
@@ -115,27 +114,7 @@ function KpiCard({ value, label, sub, color, icon }: {
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const [equipments, setEquipments] = useState<Equipment[]>([])
-  const [interventions, setInterventions] = useState<Intervention[]>([])
-  const [stock, setStock] = useState<Part[]>([])
-  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!user) return
-    Promise.all([
-      equipmentsApi.getAll(),
-      interventionsApi.getAll(),
-      partsApi.getAll(),
-      siteConfigApi.get(),
-    ]).then(([eq, int, st, cfg]) => {
-      setEquipments(eq)
-      setInterventions(int)
-      setStock(st)
-      setSiteConfig(cfg)
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [user])
+  const { equipments, interventions, parts: stock, siteConfig, loading } = useData()
 
   if (!user) return null
 

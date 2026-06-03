@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import { useAuth } from '@/components/layout/AuthProvider'
-import { auditApi, equipmentsApi, filesApi, interventionsApi, partsApi, profilesApi } from '@/lib/supabase'
+import { auditApi, equipmentsApi, filesApi, interventionsApi, partsApi } from '@/lib/supabase'
+import { useData } from '@/lib/DataStore'
 import type { Equipment, EqStatus, Part, Priority, Profile } from '@/types'
 import { EQ_STATUS_CONFIG, PRIORITY_CONFIG } from '@/types'
 
@@ -770,9 +771,8 @@ function NewInterventionModal({
 export default function PlanPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [equipments, setEquipments] = useState<Equipment[]>([])
-  const [technicians, setTechnicians] = useState<Profile[]>([])
-  const [loading, setLoading] = useState(true)
+  const { equipments: allEquipments, technicians, loading, reload } = useData()
+  const [localEquipments, setLocalEquipments] = useState<Equipment[]>([])
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selected, setSelected] = useState<Equipment | null>(null)
   const [planMode, setPlanMode] = useState<'schema' | 'photo'>('schema')
@@ -781,37 +781,19 @@ export default function PlanPage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
-const canManage =
-  user?.role === 'admin' ||
-  user?.role === 'manager'
+  const canManage = user?.role === 'admin' || user?.role === 'manager'
+  // Utiliser les équipements locaux si disponibles (après modification), sinon DataStore
+  const equipments = localEquipments.length > 0 ? localEquipments : allEquipments
 
   const load = async () => {
-    setLoading(true)
     const eqs = await equipmentsApi.getAll()
-    setEquipments(eqs)
-    setLoading(false)
+    setLocalEquipments(eqs)
   }
 
   const showToast = (message: string) => {
     setToast(message)
     setTimeout(() => setToast(null), 3000)
   }
-
-  useEffect(() => {
-    let active = true
-
-    Promise.all([
-      equipmentsApi.getAll(),
-      user && user.role !== 'technician' ? profilesApi.getAll() : Promise.resolve([] as Profile[]),
-    ]).then(([eqs, profiles]) => {
-      if (!active) return
-      setEquipments(eqs)
-      setTechnicians(profiles.filter(profile => profile.role === 'technician'))
-      setLoading(false)
-    })
-
-    return () => { active = false }
-  }, [user])
 
   const filtered = useMemo(() => (
     statusFilter === 'all' ? equipments : equipments.filter(eq => eq.status === statusFilter)
@@ -845,7 +827,7 @@ const canManage =
     }
     await auditApi.log(user.id, 'Equipement cree', created.name, `Zone ${created.zone || '—'}`)
     await load()
-    showToast('Machine ajoutee')
+    showToast('Machine ajoutée')
   }
 
   const handleCreateIntervention = async (equipment: Equipment, payload: { title: string; description: string; priority: Priority; technician_id: string }) => {
