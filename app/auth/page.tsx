@@ -1,29 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/layout/AuthProvider'
 
 export default function AuthPage() {
-  const { signIn } = useAuth()
+  const { signIn, user, loading } = useAuth()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
+
+  // Rediriger dès que user est disponible
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace('/dashboard')
+    }
+  }, [user, loading, router])
 
   const handleLogin = async () => {
     if (!email || !password) { setError('Remplissez tous les champs.'); return }
-    setLoading(true)
+    setSigningIn(true)
     setError('')
     const { error } = await signIn(email, password)
     if (error) {
       setError('Email ou mot de passe incorrect.')
-      setLoading(false)
-    } else {
-      router.replace('/dashboard')
+      setSigningIn(false)
     }
+    // Pas de router.replace ici — le useEffect s'en charge
+    // quand onAuthStateChange met à jour user
   }
+
+  // Si déjà connecté, ne pas afficher le formulaire
+  if (!loading && user) return null
 
   return (
     <div className="auth">
@@ -58,7 +68,7 @@ export default function AuthPage() {
         <div className="auth-box">
           <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>Connexion</div>
           <div style={{ fontSize: 12.5, color: 'var(--t2)', marginBottom: 22 }}>
-            Connectez-vous avec votre compte Supabase.
+            Connectez-vous avec votre compte FixOps.
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -87,17 +97,24 @@ export default function AuthPage() {
 
             {error && <div className="auth-err">⚠ {error}</div>}
 
-            <button className="btn btn-primary" onClick={handleLogin} disabled={loading}>
-              {loading ? 'Connexion...' : 'Se connecter →'}
+            <button
+              className="btn btn-primary"
+              onClick={handleLogin}
+              disabled={signingIn}
+              style={{ opacity: signingIn ? .7 : 1 }}
+            >
+              {signingIn ? 'Connexion en cours...' : 'Se connecter →'}
             </button>
           </div>
 
-          <div className="auth-demo">
-            <div className="auth-demo-title">Info</div>
-            <div style={{ fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6 }}>
-              Si la connexion est lente sur téléphone, essayez une fois puis laissez la page terminer le chargement.
+          {signingIn && (
+            <div className="auth-demo" style={{ marginTop: 16 }}>
+              <div className="auth-demo-title">Info</div>
+              <div style={{ fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6 }}>
+                Connexion en cours, veuillez patienter…
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
