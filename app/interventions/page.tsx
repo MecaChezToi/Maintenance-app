@@ -186,7 +186,7 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
       for (const { part, qty } of form.usedParts) {
         await interventionsApi.usePart(interv.id, part.id, qty)
       }
-      await auditApi.log(user.id, 'Rapport signé', interv.title, `Verdict: ${form.verdict} | Pièces: ${form.usedParts.length}`)
+      auditApi.log(user.id, 'Rapport signé', interv.title, `Verdict: ${form.verdict} | Pièces: ${form.usedParts.length}`)
       onSave()
       onClose()
     } finally { setSaving(false) }
@@ -447,7 +447,7 @@ function NewIntModal({ equipments, technicians, user, onClose, onSave, error }: 
     setSaving(true)
     try {
       await onSave({ ...form, created_by: user.id })
-      await auditApi.log(user.id, 'Intervention créée', form.title, `Équipement: ${eq?.name}`)
+      auditApi.log(user.id, 'Intervention créée', form.title, `Équipement: ${eq?.name}`)
       onClose()
     } finally { setSaving(false) }
   }
@@ -544,16 +544,35 @@ export default function InterventionsPage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    const [ints, eqs, profiles, cfg] = await Promise.all([interventionsApi.getAll(), equipmentsApi.getAll(), profilesApi.getAll(), siteConfigApi.get()])
-    setInterventions(ints)
-    setEquipments(eqs)
-    setTechnicians(profiles.filter(profile => profile.role === 'technician'))
-    setSiteConfig(cfg)
-    setLoading(false)
+  // Chargement initial complet (une seule fois)
+  useEffect(() => {
+    let active = true
+    const init = async () => {
+      // Interventions en premier — visible immédiatement
+      const ints = await interventionsApi.getAll()
+      if (!active) return
+      setInterventions(ints)
+      setLoading(false)
+      // Reste en arrière-plan
+      const [eqs, profiles, cfg] = await Promise.all([
+        equipmentsApi.getAll(),
+        profilesApi.getAll(),
+        siteConfigApi.get(),
+      ])
+      if (!active) return
+      setEquipments(eqs)
+      setTechnicians(profiles.filter(p => p.role === 'technician'))
+      setSiteConfig(cfg)
+    }
+    init()
+    return () => { active = false }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  // Rechargement léger — interventions seulement
+  const load = useCallback(async () => {
+    const ints = await interventionsApi.getAll()
+    setInterventions(ints)
+  }, [])
 
   if (!user) return null
 
@@ -567,17 +586,21 @@ export default function InterventionsPage() {
   }
 
   const updateStatus = async (interv: Intervention, status: 'a_faire' | 'en_cours' | 'termine' | 'valide') => {
-    await interventionsApi.updateStatus(interv.id, status)
-    await auditApi.log(user.id, 'Statut modifié', interv.title, `→ ${STATUS_CONFIG[status].label}`)
-    load()
+    // Optimiste — UI immédiate
+    setInterventions(prev => prev.map(i => i.id === interv.id ? { ...i, status } : i))
+    setSelected(prev => prev?.id === interv.id ? { ...prev, status } : prev)
+    // Sync Supabase en arrière-plan
+    interventionsApi.updateStatus(interv.id, status)
+    auditApi.log(user.id, 'Statut modifié', interv.title, `→ ${STATUS_CONFIG[status].label}`)
   }
 
   const createIntervention = async (payload: any) => {
     setError(null)
     try {
-      await interventionsApi.create(payload)
-      await load()
+      const created = await interventionsApi.create(payload)
+      if (created) setInterventions(prev => [created, ...prev])
       showToast('Intervention créée')
+      auditApi.log(user.id, 'Intervention créée', payload.title || '', '')
       setShowNew(false)
     } catch (e: any) {
       setError(e.message || 'Impossible de créer l’intervention.')
