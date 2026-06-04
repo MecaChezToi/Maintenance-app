@@ -1,786 +1,350 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import AppLayout from '@/components/layout/AppLayout'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/components/layout/AuthProvider'
-import { auditApi, equipmentsApi, filesApi, interventionsApi, partsApi } from '@/lib/supabase'
+import AppLayout from '@/components/layout/AppLayout'
+import { interventionsApi, auditApi, photosApi, partsApi } from '@/lib/supabase'
 import { useData } from '@/lib/DataStore'
-import type { Equipment, EqStatus, Part, Priority, Profile } from '@/types'
-import { EQ_STATUS_CONFIG, PRIORITY_CONFIG } from '@/types'
+import type { Intervention, Equipment, Profile, Part, SiteConfig } from '@/types'
+import { STATUS_CONFIG, PRIORITY_CONFIG } from '@/types'
 
-type ZoneKey = 'A' | 'B' | 'C' | 'D'
-type StatusFilter = 'all' | EqStatus
+const fmt   = (d: string) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
+const fmtDT = (d: string) => d ? new Date(d).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—'
 
-const fmt = (d?: string | null) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
-const fmtDT = (d?: string | null) => d ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
-const sizeLabel = (size?: number | null) => size ? `${(size / 1024).toFixed(1)} Ko` : '—'
-const addDays = (days: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
-}
-
-const ZONE_CONFIG: Record<ZoneKey, { label: string; desc: string; color: string; x: number; y: number; w: number; h: number }> = {
-  A: { label: 'Lignes 1R', desc: 'Emballage & conditionnement', color: '#e8643c', x: 4,  y: 58, w: 24, h: 30 },
-  B: { label: 'Atelier 2R-3R', desc: 'SIG · Hacos · Stockage',   color: '#00c896', x: 4,  y: 30, w: 46, h: 26 },
-  C: { label: 'Production 3R-4R', desc: 'Stim · Écomec · Sapal', color: '#a855f7', x: 4,  y: 6,  w: 52, h: 22 },
-  D: { label: 'Lignes 4R droite', desc: 'Bosch · Sapal · Frigo', color: '#f59e0b', x: 58, y: 6,  w: 36, h: 52 },
-}
-
-const PREVENTIVE_TYPES = ['nettoyage', 'vidange', 'changement tapis', 'graissage', 'inspection'] as const
-
-// ─── QR CODE GENERATOR (sans lib externe) ──────────────────
-function QRCodeDisplay({ equipment }: { equipment: Equipment }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const url = typeof window !== 'undefined'
-    ? `${window.location.origin}/eq/${equipment.id}`
-    : `/eq/${equipment.id}`
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    // Simple QR-like visual avec data URL
-    const size = 200
-    canvas.width = size
-    canvas.height = size
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, size, size)
-
-    // Encode l'URL en pattern visuel (pas un vrai QR mais lisible par redirection)
-    // Pour un vrai QR code, on génère un lien vers api.qrserver.com
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=000000&margin=10`
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, size, size)
-    }
-    img.onerror = () => {
-      // Fallback : afficher juste l'ID
-      ctx.fillStyle = '#000'
-      ctx.font = '12px monospace'
-      ctx.textAlign = 'center'
-      ctx.fillText('QR Code', size/2, size/2)
-      ctx.fillText(equipment.id.slice(0,8), size/2, size/2 + 20)
-    }
-  }, [equipment.id, url])
-
-  const downloadQR = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const a = document.createElement('a')
-    a.download = `QR-${equipment.name.replace(/\s+/g, '-')}.png`
-    a.href = canvas.toDataURL('image/png')
-    a.click()
-  }
-
-  const printQR = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const win = window.open('', '_blank')
-    if (!win) return
-    win.document.write(`
-      <html><head><title>QR — ${equipment.name}</title>
-      <style>body{font-family:sans-serif;text-align:center;padding:40px;} h2{color:#000;} p{color:#555;font-size:13px;}</style>
-      </head><body>
-      <h2>${equipment.name}</h2>
-      <p>N° série : ${equipment.serial || '—'} · Zone ${equipment.zone || '—'}</p>
-      <img src="${canvas.toDataURL()}" style="width:200px;height:200px;border:1px solid #eee;" />
-      <p style="font-size:11px;color:#999;margin-top:10px;">${url}</p>
-      <script>window.onload=()=>window.print()</script>
-      </body></html>
-    `)
-    win.document.close()
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-      <div style={{ padding: 12, background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1px rgba(255,255,255,.08)' }}>
-        <canvas ref={canvasRef} style={{ display: 'block', width: 180, height: 180 }} />
-      </div>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{equipment.name}</div>
-        <div style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all', maxWidth: 260 }}>{url}</div>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={downloadQR} style={{ padding: '8px 16px', background: 'rgba(0,200,150,.15)', border: '1px solid rgba(0,200,150,.3)', borderRadius: 8, color: '#00c896', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-          ⬇ Télécharger
-        </button>
-        <button onClick={printQR} style={{ padding: '8px 16px', background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, color: 'var(--t1)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-          🖨 Imprimer
-        </button>
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--t3)', textAlign: 'center', maxWidth: 280, lineHeight: 1.5 }}>
-        Scanner ce QR code ouvre directement la fiche machine et permet de créer une intervention.
-      </div>
+const openPdf = (interv: Intervention, cfg: SiteConfig | null) => {
+  const equipmentName = (interv.equipment as any)?.name || '—'
+  const techName = (interv.technician as any)?.name || '—'
+  const creatorName = (interv.creator as any)?.name || '—'
+  const html = `<html><head><meta charset="utf-8" /><title>Rapport ${interv.id}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Outfit',sans-serif;background:#fff;color:#111}.wrap{padding:36px}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:3px solid #00c896}.logo{font-size:20px;font-weight:800;color:#00c896}.mut{font-size:10px;color:#777}.sec{margin-bottom:18px}.st{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #eee}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.f{background:#f8f9fa;border-radius:8px;padding:11px}.fl{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}.fv{font-size:13px;font-weight:700;color:#111}.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700}.b-ok{background:rgba(0,200,150,.12);color:#00c896}.b-w{background:rgba(255,165,2,.12);color:#ffa502}.b-r{background:rgba(255,71,87,.12);color:#ff4757}.txt{white-space:pre-wrap;line-height:1.6;font-size:13px;color:#222}.sign{border:1px solid #ddd;border-radius:10px;padding:16px;text-align:center}.sign .nm{font-size:18px;font-weight:800;color:#00c896;margin:8px 0}@media print{@page{margin:12mm}}</style></head><body>
+  <div class="wrap">
+    <div class="hdr"><div><div class="logo">MaintaFood</div><div class="mut">RAPPORT D'INTERVENTION — GMAO</div></div>
+    <div style="text-align:right;font-size:11px;color:#666;line-height:1.6"><div style="font-weight:800;font-size:12px;color:#111">${cfg?.name || ''}</div><div>${cfg?.certifications || ''}</div></div></div>
+    <div style="font-size:18px;font-weight:900;margin-bottom:10px">${interv.title}</div>
+    <div class="sec"><div class="st">Informations</div><div class="grid">
+      <div class="f"><div class="fl">Équipement</div><div class="fv">${equipmentName}</div></div>
+      <div class="f"><div class="fl">Créé le</div><div class="fv">${new Date(interv.created_at).toLocaleString('fr-FR')}</div></div>
+      <div class="f"><div class="fl">Créé par</div><div class="fv">${creatorName}</div></div>
+      <div class="f"><div class="fl">Technicien</div><div class="fv">${techName}</div></div>
+    </div></div>
+    ${interv.description ? `<div class="sec"><div class="st">Description</div><div class="txt">${interv.description}</div></div>` : ''}
+    <div class="sec"><div class="st">Rapport</div><div class="grid">
+      <div class="f"><div class="fl">Durée</div><div class="fv">${interv.report_duration ?? '—'} min</div></div>
+      <div class="f"><div class="fl">Verdict</div><div class="fv">${interv.report_verdict ?? '—'}</div></div>
+    </div><div style="height:12px"></div>
+    <div class="f"><div class="fl">Travaux effectués</div><div class="txt">${interv.report_actions ?? ''}</div></div>
+    <div style="height:10px"></div>
+    <div class="f"><div class="fl">Observations</div><div class="txt">${interv.report_observations ?? ''}</div></div></div>
+    <div class="sec"><div class="st">Signature</div><div class="grid">
+      <div class="sign"><div class="mut">Technicien responsable</div><div class="nm">${techName}</div><div class="mut">${interv.signed_at ? new Date(interv.signed_at).toLocaleString('fr-FR') : ''}</div></div>
+      <div class="f"><div class="fl">Certification</div><div style="font-size:12px;color:#555;line-height:1.6">Je certifie que les informations sont exactes et que les procédures de sécurité alimentaire ont été respectées.</div></div>
+    </div></div>
+    <div style="margin-top:28px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#aaa">
+      <span>MaintaFood GMAO · Généré le ${new Date().toLocaleString('fr-FR')}</span><span>${cfg?.certifications || ''}</span><span>Page 1/1</span>
     </div>
-  )
+  </div></body></html>`
+  const win = window.open('', '_blank')
+  if (!win) return
+  win.document.write(html)
+  win.document.close()
+  setTimeout(() => win.print(), 400)
 }
 
-function EquipmentDetailModal({
-  equipment,
-  canManage,
-  onClose,
-  onCreateIntervention,
-  onStatusChange,
-  onLinkPart,
-  onUnlinkPart,
-  onUploadFiles,
-  onUpdateMaintenance,
-  onDelete,
-}: {
-  equipment: Equipment
-  canManage: boolean
-  onClose: () => void
-  onCreateIntervention: (equipment: Equipment) => void
-  onStatusChange: (equipment: Equipment, status: EqStatus) => Promise<void>
-  onLinkPart: (equipment: Equipment, partId: string) => Promise<void>
-  onUnlinkPart: (equipment: Equipment, partId: string) => Promise<void>
-  onUploadFiles: (equipment: Equipment, files: File[]) => Promise<void>
-  onUpdateMaintenance: (equipment: Equipment, updates: Partial<Equipment>) => Promise<void>
-  onDelete?: (equipment: Equipment) => Promise<void>
-}) {
-  const [parts, setParts] = useState<Part[]>([])
-  const [allParts, setAllParts] = useState<Part[]>([])
-  const [equipmentFiles, setEquipmentFiles] = useState<Array<{ name: string; path: string; url: string; created_at: string | null; size: number | null }>>([])
-  const [loadingParts, setLoadingParts] = useState(true)
-  const [loadingFiles, setLoadingFiles] = useState(true)
-  const [selectedPartId, setSelectedPartId] = useState('')
-  const [linking, setLinking] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [savingMaintenance, setSavingMaintenance] = useState(false)
-  const [intervalDays, setIntervalDays] = useState<number>(Number(equipment.preventive_interval_days || 0))
-  const [tasksText, setTasksText] = useState<string>((equipment.preventive_tasks || []).join(', '))
-  const [nextPreventive, setNextPreventive] = useState<string>(equipment.next_preventive ? String(equipment.next_preventive) : '')
-  const statusCfg = EQ_STATUS_CONFIG[equipment.status]
-
-  const loadParts = async () => {
-    setLoadingParts(true)
-    try {
-      const [linkedParts, availableParts] = await Promise.all([
-        equipmentsApi.getParts(equipment.id),
-        canManage ? partsApi.getAll() : Promise.resolve([] as Part[]),
-      ])
-      setParts(linkedParts.filter(Boolean))
-      setAllParts(availableParts)
-    } finally {
-      setLoadingParts(false)
-    }
-  }
-
-  const loadFiles = async () => {
-    setLoadingFiles(true)
-    try {
-      setEquipmentFiles(await filesApi.list(`equipments/${equipment.id}`))
-    } catch {
-      setEquipmentFiles([])
-      setError('Stockage Supabase indisponible. Créez le bucket Storage \"intervention-photos\" (non public) dans Supabase → Storage.')
-    } finally {
-      setLoadingFiles(false)
-    }
-  }
-
-  useEffect(() => {
-    Promise.all([loadParts(), loadFiles()]).catch(() => undefined)
-  }, [equipment.id])
-
-  const availableParts = useMemo(() => (
-    allParts.filter(part => !parts.some(linked => linked.id === part.id))
-  ), [allParts, parts])
-
-  const handleLinkPart = async () => {
-    if (!selectedPartId) return
-    setLinking(true)
-    setError(null)
-    try {
-      await onLinkPart(equipment, selectedPartId)
-      setSelectedPartId('')
-      await loadParts()
-    } catch (e: any) {
-      setError(e.message || 'Impossible d’associer la piece.')
-    } finally {
-      setLinking(false)
-    }
-  }
-
-  const handleUploadFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    setUploading(true)
-    setError(null)
-    try {
-      await onUploadFiles(equipment, Array.from(files))
-      await loadFiles()
-    } catch (e: any) {
-      const msg = e.message || 'Impossible d’envoyer le fichier.'
-      setError(msg.includes('Bucket not found') ? 'Bucket introuvable. Créez le bucket \"intervention-photos\" dans Supabase → Storage.' : msg)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const saveMaintenance = async () => {
-    if (!canManage) return
-    setSavingMaintenance(true)
-    setError(null)
-    try {
-      const parsedTasks = tasksText
-        .split(',')
-        .map(t => t.trim())
-        .filter(Boolean)
-
-      const days = Number(intervalDays || 0)
-      const next = nextPreventive || (days > 0 ? addDays(days) : null)
-
-      await onUpdateMaintenance(equipment, {
-        preventive_interval_days: days > 0 ? days : null,
-        preventive_tasks: parsedTasks.length > 0 ? parsedTasks : null,
-        next_preventive: next ? next : null,
-      })
-    } catch (e: any) {
-      setError(e.message || 'Impossible de sauvegarder la maintenance.')
-    } finally {
-      setSavingMaintenance(false)
-    }
-  }
-
-  return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: 760, maxHeight: '90dvh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>{equipment.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
-              {equipment.serial || 'Sans n° de série'} · Zone {equipment.zone || '—'}
-            </div>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
-        </div>
-
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1, minHeight: 0 }}>
-          <div style={{ background: 'var(--s3)', borderRadius: 10, padding: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              <span className="badge" style={{ background: `${statusCfg.color}18`, color: statusCfg.color }}>
-                {statusCfg.label}
-              </span>
-              {equipment.category && <span className="badge" style={{ background: 'var(--s4)', color: 'var(--t2)' }}>{equipment.category}</span>}
-              {equipment.food_safe && <span className="badge" style={{ background: 'rgba(0,200,150,.12)', color: 'var(--acc)' }}>Zone alimentaire</span>}
-            </div>
-
-            {canManage && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {(Object.keys(EQ_STATUS_CONFIG) as EqStatus[]).map(status => {
-                  const cfg = EQ_STATUS_CONFIG[status]
-                  return (
-                    <button
-                      key={status}
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => onStatusChange(equipment, status)}
-                      style={equipment.status === status ? {
-                        borderColor: cfg.color,
-                        color: cfg.color,
-                        background: `${cfg.color}18`,
-                      } : undefined}
-                    >
-                      {cfg.label}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="grid-2">
-            <div className="card">
-              <div style={{ padding: 14 }}>
-                <div className="form-label" style={{ marginBottom: 10 }}>Fiche Technique</div>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--t2)' }}>Localisation</div>
-                    <div style={{ fontSize: 13 }}>{equipment.location || '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--t2)' }}>Réf. manuel</div>
-                    <div style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: equipment.manual_ref ? 'var(--acc)' : 'var(--t1)' }}>
-                      {equipment.manual_ref || '—'}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--t2)' }}>Dernière inspection</div>
-                    <div style={{ fontSize: 13 }}>{fmt(equipment.last_inspection)}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--t2)' }}>Prochaine inspection</div>
-                    <div style={{ fontSize: 13, color: equipment.next_inspection && new Date(equipment.next_inspection) < new Date() ? 'var(--red)' : 'var(--t1)' }}>
-                      {fmt(equipment.next_inspection)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div style={{ padding: 14 }}>
-                <div className="form-label" style={{ marginBottom: 10 }}>Schema / Description</div>
-                <div style={{ fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.7 }}>
-                  {equipment.schema_desc || 'Aucune description technique renseignée.'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid var(--b0)', fontSize: 15, fontWeight: 700 }}>
-              Pieces compatibles
-            </div>
-            <div style={{ padding: 14 }}>
-              {error && <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(255,71,87,.08)', border: '1px solid rgba(255,71,87,.25)', borderRadius: 8, fontSize: 12.5, color: '#ff4757' }}>{error}</div>}
-              {canManage && (
-                <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                  <select className="form-select" value={selectedPartId} onChange={e => setSelectedPartId(e.target.value)} style={{ flex: 1, minWidth: 220 }}>
-                    <option value="">Associer une piece du magasin…</option>
-                    {availableParts.map(part => (
-                      <option key={part.id} value={part.id}>{part.ref} · {part.name}</option>
-                    ))}
-                  </select>
-                  <button className="btn btn-primary" disabled={!selectedPartId || linking} onClick={handleLinkPart}>
-                    {linking ? 'Ajout...' : '+ Associer'}
-                  </button>
-                </div>
-              )}
-              {loadingParts ? (
-                <div style={{ color: 'var(--t2)', fontSize: 13 }}>Chargement…</div>
-              ) : parts.length === 0 ? (
-                <div className="empty-state" style={{ padding: 24 }}>
-                  <span>Aucune piece referencee</span>
-                </div>
-              ) : (
-                <div className="grid-2">
-                  {parts.map(part => {
-                    const low = part.qty <= part.min_qty
-                    return (
-                      <div key={part.id} style={{ background: 'var(--s3)', border: `1px solid ${low ? 'rgba(255,71,87,.25)' : 'var(--b0)'}`, borderRadius: 8, padding: 12, display: 'flex', gap: 10 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{part.name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--acc)', fontFamily: 'var(--font-mono)' }}>{part.ref}</div>
-                          <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 6 }}>{part.location || '—'} · {part.location_detail || 'Emplacement non renseigne'}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: low ? 'var(--red)' : 'var(--t1)' }}>{part.qty}</div>
-                          <div style={{ fontSize: 10, color: 'var(--t2)' }}>{part.unit}</div>
-                          {canManage && (
-                            <button className="btn btn-ghost btn-xs" style={{ marginTop: 8 }} onClick={() => onUnlinkPart(equipment, part.id).then(loadParts).catch((e: any) => setError(e.message || 'Impossible de retirer la piece.'))}>
-                              Retirer
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="card">
-            <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>Photos / documents machine</div>
-              <label className="btn btn-ghost btn-sm" style={{ cursor: uploading ? 'progress' : 'pointer', opacity: uploading ? .7 : 1 }}>
-                {uploading ? 'Envoi...' : '+ Ajouter'}
-                <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple style={{ display: 'none' }} onChange={e => handleUploadFiles(e.target.files)} />
-              </label>
-            </div>
-            <div style={{ padding: 14 }}>
-              {loadingFiles ? (
-                <div style={{ color: 'var(--t2)', fontSize: 13 }}>Chargement…</div>
-              ) : equipmentFiles.length === 0 ? (
-                <div className="empty-state" style={{ padding: 24 }}>
-                  <span>Aucun document sur cette machine</span>
-                </div>
-              ) : (
-                <div className="grid-2">
-                  {equipmentFiles.map(file => (
-                    <a
-                      key={file.path}
-                      href={file.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--s3)', border: '1px solid var(--b0)', borderRadius: 8, padding: 12, color: 'inherit', textDecoration: 'none' }}
-                    >
-                      <div style={{ fontSize: 20 }}>📎</div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--t2)', fontFamily: 'var(--font-mono)' }}>{fmtDT(file.created_at)} · {sizeLabel(file.size)}</div>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="card">
-            <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid var(--b0)', fontSize: 15, fontWeight: 700 }}>
-              Maintenance preventive
-            </div>
-            <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label className="form-label">Dans (jours)</label>
-                  <input
-                    className="form-input"
-                    type="number"
-                    value={intervalDays}
-                    onChange={e => {
-                      const v = Math.max(0, parseInt(e.target.value) || 0)
-                      setIntervalDays(v)
-                      if (v > 0) setNextPreventive(addDays(v))
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label className="form-label">Date prochaine</label>
-                  <input className="form-input" type="date" value={nextPreventive} onChange={e => setNextPreventive(e.target.value)} />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label className="form-label">Types (separes par virgules)</label>
-                <input className="form-input" value={tasksText} onChange={e => setTasksText(e.target.value)} placeholder="nettoyage, vidange, changement tapis" />
-              </div>
-
-              <div style={{ fontSize: 12, color: 'var(--t2)' }}>
-                Prochaine : <span style={{ color: 'var(--t1)', fontFamily: 'var(--font-mono)' }}>{nextPreventive ? fmt(nextPreventive) : '—'}</span>
-              </div>
-
-              {canManage && (
-                <button className="btn btn-primary" disabled={savingMaintenance} onClick={saveMaintenance}>
-                  {savingMaintenance ? 'Sauvegarde...' : '✓ Sauvegarder'}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* QR Code section */}
-          <div className="card">
-            <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid var(--b0)', fontSize: 15, fontWeight: 700 }}>
-              QR Code machine
-            </div>
-            <div style={{ padding: 14 }}>
-              <QRCodeDisplay equipment={equipment} />
-            </div>
-          </div>
-
-        </div>
-
-        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          {canManage && onDelete && (
-            <button onClick={() => onDelete(equipment)} style={{ padding: '7px 14px', background: 'rgba(255,71,87,.1)', border: '1px solid rgba(255,71,87,.25)', borderRadius: 6, color: '#ff4757', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-              🗑 Supprimer
-            </button>
-          )}
-          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-            <button className="btn btn-ghost" onClick={onClose}>Fermer</button>
-            <button className="btn btn-primary" onClick={() => onCreateIntervention(equipment)}>Nouvelle intervention</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AddEquipmentModal({
-  onClose,
-  onSave,
-  error,
-}: {
-  onClose: () => void
-  onSave: (equipment: Partial<Equipment>, files: File[]) => Promise<void>
-  error?: string | null
-}) {
-  const [form, setForm] = useState({
-    name: '',
-    serial: '',
-    location: '',
-    zone: 'A' as ZoneKey,
-    category: 'Machine-outil',
-    color: '#3c82e8',
-    schema_desc: '',
-    manual_ref: '',
-    food_safe: false,
-    next_inspection: '',
-    preventive_days: 0,
-    preventive_tasks: [] as string[],
-    files: [] as File[],
-  })
+// ─── REPORT FORM ─────────────────────────────────────────────
+function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
+  const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
-  const setField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm(prev => ({ ...prev, [key]: value }))
+  const [parts, setParts] = useState<Part[]>([])
+  const [existingPhotos, setExistingPhotos] = useState<any[]>(interv.photos || [])
+  const [form, setForm] = useState({
+    problemDesc: interv.description || '',
+    actions: interv.report_actions || '',
+    observations: interv.report_observations || '',
+    duration: interv.report_duration || '',
+    verdict: interv.report_verdict || '',
+    hygiene: interv.report_hygiene || false,
+    cleaning: interv.report_cleaning || false,
+    foodImpact: interv.food_impact || false,
+    productionStopped: interv.production_stopped || false,
+    photos: [] as File[],
+    usedParts: [] as { part: Part; qty: number }[],
+  })
+  const s = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }))
+  const steps = ['Problème', 'Travaux', 'Hygiène', 'Pièces', 'Vérification', 'Signature']
 
-  const save = async () => {
-    if (!form.name.trim()) return
+  useEffect(() => { partsApi.getAll().then(setParts).catch(() => {}) }, [])
+
+  const addPart = (part: Part) => { if (!form.usedParts.find(p => p.part.id === part.id)) s('usedParts', [...form.usedParts, { part, qty: 1 }]) }
+  const removePart = (partId: string) => s('usedParts', form.usedParts.filter(p => p.part.id !== partId))
+  const updateQty = (partId: string, qty: number) => s('usedParts', form.usedParts.map(p => p.part.id === partId ? { ...p, qty: Math.max(1, qty) } : p))
+  const removeExistingPhoto = (photoId: string) => setExistingPhotos(prev => prev.filter((p: any) => p.id !== photoId))
+
+  const submit = async () => {
+    if (!form.actions || !form.verdict) return
     setSaving(true)
     try {
-      const zone = ZONE_CONFIG[form.zone]
-      const preventiveDays = Number(form.preventive_days || 0)
-      await onSave({
-        name: form.name.trim(),
-        serial: form.serial.trim(),
-        location: form.location.trim(),
-        zone: form.zone,
-        category: form.category,
-        color: form.color,
-        schema_desc: form.schema_desc.trim(),
-        manual_ref: form.manual_ref.trim(),
-        food_safe: form.food_safe,
-        status: 'ok',
-        pos_x: zone.x + zone.w / 2 - 5,
-        pos_y: zone.y + zone.h / 2 - 4,
-        pos_w: 10,
-        pos_h: 8,
-        last_inspection: new Date().toISOString().split('T')[0],
-        next_inspection: form.next_inspection || null as never,
-        preventive_interval_days: preventiveDays > 0 ? preventiveDays : null as never,
-        preventive_tasks: form.preventive_tasks.length > 0 ? form.preventive_tasks : null as never,
-        next_preventive: preventiveDays > 0 ? addDays(preventiveDays) : null as never,
-      }, form.files)
+      await interventionsApi.submitReport(interv.id, {
+        actions: form.actions, observations: form.observations,
+        duration: Number(form.duration), verdict: form.verdict,
+        hygiene: form.hygiene, cleaning: form.cleaning, signed_by: user.id,
+      })
+      for (const file of form.photos) await photosApi.upload(file, interv.id, user.id)
+      for (const { part, qty } of form.usedParts) await interventionsApi.usePart(interv.id, part.id, qty)
+      auditApi.log(user.id, 'Rapport signé', interv.title, `Verdict: ${form.verdict} | Pièces: ${form.usedParts.length}`)
+      onSave()
       onClose()
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
+  }
+
+  const styles: Record<string, React.CSSProperties> = {
+    overlay: { position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.8)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+    modal: { background: '#161719', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, width: '100%', maxWidth: 640, height: '90dvh', maxHeight: '90dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+    header: { padding: '18px 20px 14px', borderBottom: '1px solid rgba(255,255,255,.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
+    body: { padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1, minHeight: 0 },
+    footer: { padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,.04)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 },
+    stepRow: { display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,.04)', overflowX: 'auto', flexShrink: 0 },
+    section: { background: 'rgba(255,255,255,.04)', borderRadius: 8, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 },
+    checkRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'rgba(255,255,255,.03)', borderRadius: 6, cursor: 'pointer' },
   }
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: 620, maxHeight: '90dvh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>Ajouter une machine</div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
-        </div>
-
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label className="form-label">Nom *</label>
-            <input className="form-input" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="ex: Compresseur Atlas #4" />
+    <div style={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={styles.modal}>
+        <div style={styles.header}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700 }}>Rapport d'intervention</div>
+            <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>{equipment?.name} · {fmt(new Date().toISOString())}</div>
           </div>
-
-          <div className="grid-2">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label className="form-label">N° de serie</label>
-              <input className="form-input" value={form.serial} onChange={e => setField('serial', e.target.value)} placeholder="ex: ATL-2026-004" />
+          <button onClick={onClose} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.08)', borderRadius: 6, color: 'var(--t2)', cursor: 'pointer', padding: '4px 8px', fontSize: 16 }}>×</button>
+        </div>
+        <div style={styles.stepRow}>
+          {steps.map((st, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: i < steps.length - 1 ? 1 : 'none' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', flexShrink: 0, background: i < step ? '#00c896' : i === step ? 'rgba(0,200,150,.12)' : 'rgba(255,255,255,.04)', border: `2px solid ${i <= step ? '#00c896' : 'rgba(255,255,255,.08)'}`, color: i < step ? '#000' : i === step ? '#00c896' : 'var(--t2)' }}>
+                {i < step ? '✓' : i + 1}
+              </div>
+              {i < steps.length - 1 && <div style={{ flex: 1, height: 1, background: i < step ? '#00c896' : 'rgba(255,255,255,.08)' }} />}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label className="form-label">Zone</label>
-              <select className="form-select" value={form.zone} onChange={e => setField('zone', e.target.value as ZoneKey)}>
-                {(Object.keys(ZONE_CONFIG) as ZoneKey[]).map(zone => (
-                  <option key={zone} value={zone}>Zone {zone} — {ZONE_CONFIG[zone].label}</option>
+          ))}
+        </div>
+        <div style={styles.body}>
+          {step === 0 && <>
+            <div style={styles.section}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)' }}>Description du problème *</div>
+              <textarea className="form-input" placeholder="Décrivez le problème..." value={form.problemDesc} onChange={e => s('problemDesc', e.target.value)} style={{ minHeight: 110, resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <label className="form-label">Durée (min)</label>
+                <input className="form-input" type="number" placeholder="ex: 90" value={form.duration} onChange={e => s('duration', e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <label className="form-label">Impact</label>
+                <label style={styles.checkRow}>
+                  <input type="checkbox" checked={form.productionStopped} onChange={e => s('productionStopped', e.target.checked)} style={{ accentColor: '#00c896' }} />
+                  <span style={{ fontSize: 13 }}>Production arrêtée</span>
+                </label>
+              </div>
+            </div>
+            <div style={styles.section}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)', marginBottom: 8 }}>Photos ({existingPhotos.length + form.photos.length})</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                {existingPhotos.map((photo: any) => (
+                  <div key={photo.id} style={{ aspectRatio: '1', background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.15)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#00c896', gap: 4, position: 'relative' }}>
+                    📷<span>{photo.filename?.slice(0,8) || 'photo'}</span>
+                    <button onClick={() => removeExistingPhoto(photo.id)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(255,71,87,.8)', border: 'none', borderRadius: '50%', width: 18, height: 18, color: '#fff', cursor: 'pointer', fontSize: 10 }}>×</button>
+                  </div>
+                ))}
+                {form.photos.map((f, i) => (
+                  <div key={i} style={{ aspectRatio: '1', background: 'rgba(255,255,255,.04)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--t2)', gap: 4, position: 'relative' }}>
+                    📷<span>{f.name.slice(0, 8)}</span>
+                    <button onClick={() => s('photos', form.photos.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(255,71,87,.8)', border: 'none', borderRadius: '50%', width: 18, height: 18, color: '#fff', cursor: 'pointer', fontSize: 10 }}>×</button>
+                  </div>
+                ))}
+                <label style={{ aspectRatio: '1', background: 'rgba(255,255,255,.02)', border: '1px dashed rgba(255,255,255,.12)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--t2)' }}>
+                  <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { if (e.target.files) s('photos', [...form.photos, ...Array.from(e.target.files)]) }} />
+                  <span style={{ fontSize: 22 }}>📷</span><span style={{ fontSize: 10 }}>Ajouter</span>
+                </label>
+              </div>
+            </div>
+          </>}
+          {step === 1 && <>
+            <div style={styles.section}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)' }}>Travaux effectués *</div>
+              <textarea className="form-input" placeholder="Décrivez la correction apportée..." value={form.actions} onChange={e => s('actions', e.target.value)} style={{ minHeight: 110, resize: 'vertical' }} />
+            </div>
+            <div style={styles.section}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)' }}>Observations</div>
+              <textarea className="form-input" placeholder="Points à surveiller..." value={form.observations} onChange={e => s('observations', e.target.value)} style={{ minHeight: 80 }} />
+            </div>
+          </>}
+          {step === 2 && <>
+            <div style={{ ...styles.section, background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)' }}>
+              <div style={{ color: '#00c896', fontWeight: 600, fontSize: 13 }}>🛡️ Vérifications obligatoires IFS/BRC</div>
+            </div>
+            <div style={styles.section}>
+              {[['hygiene','Hygiène personnelle respectée'],['cleaning','Nettoyage post-intervention effectué'],['foodImpact','Risque de contamination alimentaire ⚠️']].map(([key, label]) => (
+                <label key={key} style={styles.checkRow}>
+                  <input type="checkbox" checked={(form as any)[key]} onChange={e => s(key, e.target.checked)} style={{ accentColor: '#00c896', width: 16, height: 16 }} />
+                  <span style={{ fontSize: 13 }}>{label}</span>
+                </label>
+              ))}
+            </div>
+          </>}
+          {step === 3 && <>
+            <div style={styles.section}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)', marginBottom: 10 }}>Pièces utilisées</div>
+              <select className="form-input" onChange={e => { const part = parts.find(p => p.id === e.target.value); if (part) addPart(part); e.target.value = '' }}>
+                <option value="">Sélectionner une pièce...</option>
+                {parts.filter(p => !form.usedParts.find(up => up.part.id === p.id)).map(p => (
+                  <option key={p.id} value={p.id}>{p.name} — Stock: {p.qty} {p.unit}</option>
                 ))}
               </select>
             </div>
-          </div>
-
-          <div className="grid-2">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label className="form-label">Localisation</label>
-              <input className="form-input" value={form.location} onChange={e => setField('location', e.target.value)} placeholder="ex: Atelier B, cote nord" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label className="form-label">Categorie</label>
-              <input className="form-input" value={form.category} onChange={e => setField('category', e.target.value)} placeholder="ex: Pneumatique" />
-            </div>
-          </div>
-
-          <div className="grid-2">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label className="form-label">Manuel technique</label>
-              <input className="form-input" value={form.manual_ref} onChange={e => setField('manual_ref', e.target.value)} placeholder="ex: ATL-15KW-2026" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label className="form-label">Prochaine inspection</label>
-              <input className="form-input" type="date" value={form.next_inspection} onChange={e => setField('next_inspection', e.target.value)} />
-            </div>
-          </div>
-
-          <div className="card" style={{ padding: 14, background: 'var(--s3)' }}>
-            <div className="form-label" style={{ marginBottom: 10 }}>Maintenance preventive</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label className="form-label">Dans (jours)</label>
-                <input className="form-input" type="number" value={form.preventive_days} onChange={e => setField('preventive_days', Math.max(0, parseInt(e.target.value) || 0))} />
+            {form.usedParts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t3)', fontSize: 13 }}><div style={{ fontSize: 28, marginBottom: 8 }}>📦</div>Aucune pièce — optionnel</div>
+            ) : form.usedParts.map(({ part, qty }) => (
+              <div key={part.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{part.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--t2)' }}>Stock: {part.qty} {part.unit}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => updateQty(part.id, qty - 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: 'transparent', color: 'var(--t1)', cursor: 'pointer', fontSize: 16 }}>−</button>
+                  <span style={{ width: 32, textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{qty}</span>
+                  <button onClick={() => updateQty(part.id, qty + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: 'transparent', color: 'var(--t1)', cursor: 'pointer', fontSize: 16 }}>+</button>
+                </div>
+                <button onClick={() => removePart(part.id)} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'rgba(255,71,87,.15)', color: '#ff4757', cursor: 'pointer', fontSize: 14 }}>×</button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label className="form-label">Prochaine</label>
-                <input className="form-input" type="date" value={form.preventive_days > 0 ? addDays(form.preventive_days) : ''} readOnly />
+            ))}
+          </>}
+          {step === 4 && <>
+            <div style={styles.section}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)', marginBottom: 10 }}>Verdict *</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[['conforme','✅ Conforme','#00c896'],['non_conforme','❌ Non conforme','#ff4757'],['a_surveiller','⚠️ À surveiller','#ffa502']].map(([v,l,c]) => (
+                  <button key={v} onClick={() => s('verdict', v)} style={{ flex: 1, padding: '12px 8px', borderRadius: 8, border: `1px solid ${form.verdict === v ? c : 'rgba(255,255,255,.08)'}`, background: form.verdict === v ? c+'18' : 'transparent', color: form.verdict === v ? c : 'var(--t2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{l}</button>
+                ))}
               </div>
             </div>
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {PREVENTIVE_TYPES.map(t => {
-                const active = form.preventive_tasks.includes(t)
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setField('preventive_tasks', active ? form.preventive_tasks.filter(x => x !== t) : [...form.preventive_tasks, t])}
-                    style={active ? { borderColor: 'var(--acc)', color: 'var(--acc)', background: 'var(--acc-dim)' } : undefined}
-                  >
-                    {t}
-                  </button>
-                )
-              })}
+            <div style={styles.section}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)', marginBottom: 10 }}>Récapitulatif</div>
+              {[['Durée', form.duration ? `${form.duration} min` : '—'],['Hygiène', form.hygiene ? '✅' : '⚠️'],['Nettoyage', form.cleaning ? '✅' : '⚠️'],['Risque alim.', form.foodImpact ? '⚠️ Oui' : '✅ Non'],['Pièces', form.usedParts.length > 0 ? form.usedParts.map(p => `${p.part.name} ×${p.qty}`).join(', ') : 'Aucune']].map(([k,v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,.04)', fontSize: 13 }}>
+                  <span style={{ color: 'var(--t2)' }}>{k}</span><span style={{ fontWeight: 500 }}>{v}</span>
+                </div>
+              ))}
             </div>
-
-            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label className="form-label">Autres (separes par virgules)</label>
-              <input
-                className="form-input"
-                placeholder="ex: controle courroies, graissage chaine"
-                onBlur={(e) => {
-                  const extras = e.target.value.split(',').map(v => v.trim()).filter(Boolean)
-                  const merged = [...new Set([...form.preventive_tasks, ...extras])]
-                  setField('preventive_tasks', merged)
-                  e.target.value = ''
-                }}
-              />
+          </>}
+          {step === 5 && <>
+            <div style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, padding: 20, textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: 'var(--t2)', marginBottom: 8 }}>Rapport certifié par</div>
+              <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#00c896', margin: '8px 0' }}>{user.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--t2)', fontFamily: 'var(--font-mono)' }}>{fmtDT(new Date().toISOString())}</div>
+              <div style={{ marginTop: 14, padding: 12, background: 'rgba(255,255,255,.03)', borderRadius: 8, fontSize: 12, color: 'var(--t2)', lineHeight: 1.6 }}>
+                Je certifie que les informations sont exactes et que les procédures ont été respectées.
+              </div>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label className="form-label">Description technique</label>
-            <textarea className="form-textarea" value={form.schema_desc} onChange={e => setField('schema_desc', e.target.value)} placeholder="Fonctionnement, schema, points d'attention..." />
-          </div>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--s3)', borderRadius: 8, cursor: 'pointer' }}>
-            <input type="checkbox" checked={form.food_safe} onChange={e => setField('food_safe', e.target.checked)} style={{ accentColor: 'var(--acc)' }} />
-            <span style={{ fontSize: 13 }}>Machine en zone alimentaire</span>
-          </label>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label className="form-label">Photos / documents</label>
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 12px', background: 'var(--s3)', borderRadius: 8, cursor: 'pointer', border: '1px dashed var(--b1)' }}>
-              <span style={{ fontSize: 13, color: 'var(--t2)' }}>{form.files.length > 0 ? `${form.files.length} fichier(s) selectionne(s)` : 'Ajouter des photos ou documents'}</span>
-              <span className="btn btn-ghost btn-xs">Choisir</span>
-              <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple style={{ display: 'none' }} onChange={e => setField('files', e.target.files ? Array.from(e.target.files) : [])} />
-            </label>
-          </div>
-
-          {error && <div style={{ padding: '10px 12px', background: 'rgba(255,71,87,.08)', border: '1px solid rgba(255,71,87,.25)', borderRadius: 8, fontSize: 12.5, color: '#ff4757' }}>{error}</div>}
+            {(!form.verdict || !form.actions) && (
+              <div style={{ padding: '10px 14px', background: 'rgba(255,165,2,.08)', border: '1px solid rgba(255,165,2,.25)', borderRadius: 8, fontSize: 13, color: '#ffa502' }}>
+                ⚠️ Travaux + verdict obligatoires.
+              </div>
+            )}
+          </>}
         </div>
-
-        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--b0)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
-          <button className="btn btn-primary" disabled={!form.name.trim() || saving} onClick={save}>
-            {saving ? 'Ajout...' : 'Ajouter la machine'}
-          </button>
+        <div style={styles.footer}>
+          {step > 0 && <button onClick={() => setStep(s => s - 1)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.08)', borderRadius: 6, padding: '8px 14px', color: 'var(--t2)', cursor: 'pointer' }}>← Retour</button>}
+          <div style={{ flex: 1 }} />
+          {step < steps.length - 1
+            ? <button onClick={() => setStep(s => s + 1)} style={{ background: '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Suivant →</button>
+            : <button onClick={submit} disabled={!form.verdict || !form.actions || saving} style={{ background: (!form.verdict || !form.actions) ? 'rgba(255,255,255,.1)' : '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
+                {saving ? 'Enregistrement...' : '✓ Signer et clôturer'}
+              </button>}
         </div>
       </div>
     </div>
   )
 }
 
-function NewInterventionModal({
-  equipment,
-  user,
-  technicians,
-  onClose,
-  onSave,
-  error,
-}: {
-  equipment: Equipment
-  user: Profile
-  technicians: Profile[]
-  onClose: () => void
-  onSave: (payload: { title: string; description: string; priority: Priority; technician_id: string }) => Promise<void>
-  error?: string | null
-}) {
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    priority: 'normale' as Priority,
-    technician_id: user.role === 'technician' ? user.id : '',
+// ─── NOUVELLE INTERVENTION ───────────────────────────────────
+function NewIntModal({ equipments, technicians, user, onClose, onSave, error }: any) {
+  const [form, setForm] = useState<{ title: string; equipment_id: string; technician_id: string; priority: 'normale'|'haute'|'critique'; description: string; food_impact: boolean; production_stopped: boolean }>({
+    title: '', equipment_id: '', technician_id: user.role === 'technician' ? user.id : '',
+    priority: 'normale', description: '', food_impact: false, production_stopped: false
   })
   const [saving, setSaving] = useState(false)
+  const s = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }))
+  const eq = equipments.find((e: Equipment) => e.id === form.equipment_id)
 
   const save = async () => {
-    if (!form.title.trim()) return
+    if (!form.title || !form.equipment_id) return
     setSaving(true)
     try {
-      await onSave(form)
+      await onSave({ ...form, created_by: user.id })
+      auditApi.log(user.id, 'Intervention créée', form.title, `Équipement: ${eq?.name}`)
       onClose()
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
+
+  const iS: React.CSSProperties = { background: 'transparent', border: '1px solid rgba(255,255,255,.08)', borderRadius: 6, color: 'var(--t2)', cursor: 'pointer', padding: '8px 14px', fontSize: 13 }
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box" style={{ maxWidth: 600 }}>
-        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 700 }}>Nouvelle intervention</div>
-            <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{equipment.name}</div>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
+        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid rgba(255,255,255,.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 700 }}>Nouvelle intervention</div>
+          <button onClick={onClose} style={{ ...iS, padding: '4px 8px', fontSize: 16 }}>×</button>
         </div>
-
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="modal-body" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <label className="form-label">Titre *</label>
-            <input className="form-input" value={form.title} onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))} placeholder="ex: Diagnostic fuite hydraulique" />
+            <input className="form-input" placeholder="ex: Remplacement joint doseuse" value={form.title} onChange={e => s('title', e.target.value)} />
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label className="form-label">Description</label>
-            <textarea className="form-textarea" value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} placeholder="Decrire le probleme ou l'action a realiser..." />
-          </div>
-
-          <div className="grid-2">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label className="form-label">Priorite</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {(Object.keys(PRIORITY_CONFIG) as Priority[]).map(priority => {
-                  const cfg = PRIORITY_CONFIG[priority]
-                  return (
-                    <button
-                      key={priority}
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setForm(prev => ({ ...prev, priority }))}
-                      style={form.priority === priority ? {
-                        borderColor: cfg.color,
-                        color: cfg.color,
-                        background: `${cfg.color}18`,
-                      } : undefined}
-                    >
-                      {cfg.label}
-                    </button>
-                  )
-                })}
-              </div>
+              <label className="form-label">Équipement *</label>
+              <select className="form-input" value={form.equipment_id} onChange={e => s('equipment_id', e.target.value)}>
+                <option value="">Sélectionner...</option>
+                {equipments.map((e: Equipment) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
             </div>
-
             {user.role !== 'technician' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <label className="form-label">Technicien</label>
-                <select className="form-select" value={form.technician_id} onChange={e => setForm(prev => ({ ...prev, technician_id: e.target.value }))}>
-                  <option value="">Non assigne</option>
-                  {technicians.map(tech => (
-                    <option key={tech.id} value={tech.id}>{tech.name}</option>
-                  ))}
+                <select className="form-input" value={form.technician_id} onChange={e => s('technician_id', e.target.value)}>
+                  <option value="">Non assigné</option>
+                  {technicians.map((tech: Profile) => <option key={tech.id} value={tech.id}>{tech.name}</option>)}
                 </select>
               </div>
             )}
           </div>
-
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label className="form-label">Priorité</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[['normale','Normale','#8b9bb4'],['haute','Haute','#ffa502'],['critique','Critique','#ff4757']].map(([k,l,c]) => (
+                <button key={k} onClick={() => s('priority', k)} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${form.priority === k ? c : 'rgba(255,255,255,.08)'}`, background: form.priority === k ? c+'18' : 'transparent', color: form.priority === k ? c : 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label className="form-label">Description</label>
+            <textarea className="form-input" placeholder="Décrire le problème..." value={form.description} onChange={e => s('description', e.target.value)} style={{ minHeight: 80 }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[['production_stopped','Production arrêtée'],['food_impact','Risque alimentaire']].map(([k,l]) => (
+              <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,.03)', borderRadius: 6, cursor: 'pointer' }}>
+                <input type="checkbox" checked={(form as any)[k]} onChange={e => s(k, e.target.checked)} style={{ accentColor: '#00c896', width: 15, height: 15 }} />
+                <span style={{ fontSize: 13 }}>{l}</span>
+              </label>
+            ))}
+          </div>
+          {eq?.food_safe && <div style={{ padding: '8px 12px', background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 6, fontSize: 12, color: '#00c896' }}>🛡️ Zone alimentaire — rapport hygiène obligatoire</div>}
           {error && <div style={{ padding: '10px 12px', background: 'rgba(255,71,87,.08)', border: '1px solid rgba(255,71,87,.25)', borderRadius: 8, fontSize: 12.5, color: '#ff4757' }}>{error}</div>}
         </div>
-
-        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--b0)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
-          <button className="btn btn-primary" disabled={!form.title.trim() || saving} onClick={save}>
-            {saving ? 'Creation...' : 'Creer l’intervention'}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,.04)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={onClose} style={iS}>Annuler</button>
+          <button onClick={save} disabled={!form.title || !form.equipment_id || saving} style={{ background: (!form.title || !form.equipment_id) ? 'rgba(255,255,255,.1)' : '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            {saving ? 'Création...' : '✓ Créer'}
           </button>
         </div>
       </div>
@@ -788,382 +352,188 @@ function NewInterventionModal({
   )
 }
 
-export default function PlanPage() {
+// ─── PAGE PRINCIPALE ─────────────────────────────────────────
+export default function InterventionsPage() {
   const { user } = useAuth()
-  const router = useRouter()
-  const { equipments, technicians, loading, reload } = useData()
-  const [localEq, setLocalEq] = useState<Equipment[]>([])
-  const displayEquipments = localEq.length > 0 ? localEq : equipments
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [selected, setSelected] = useState<Equipment | null>(null)
-  const [planMode, setPlanMode] = useState<'schema' | 'photo'>('schema')
-  const [showAddMachine, setShowAddMachine] = useState(false)
-  const [createFor, setCreateFor] = useState<Equipment | null>(null)
+  const {
+    interventions, equipments, technicians, siteConfig, loading,
+    updateIntervention, addIntervention, reloadInterventions
+  } = useData()
+  const [filter, setFilter] = useState('all')
+  const [showNew, setShowNew] = useState(false)
+  const [selected, setSelected] = useState<Intervention | null>(null)
+  const [showReport, setShowReport] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
-  const canManage = user?.role === 'admin' || user?.role === 'manager'
-
-  const load = async () => {
-    // Recharger uniquement les équipements — pas tout le DataStore
-    const eqs = await equipmentsApi.getAll()
-    setLocalEq(eqs)
-  }
-
-  const showToast = (message: string) => {
-    setToast(message)
-    setTimeout(() => setToast(null), 3000)
-  }
-
-  const filtered = useMemo(() => (
-    statusFilter === 'all' ? displayEquipments : displayEquipments.filter(eq => eq.status === statusFilter)
-  ), [equipments, statusFilter])
-
-  const groupedByZone = useMemo(() => {
-    const grouped: Record<ZoneKey, Equipment[]> = { A: [], B: [], C: [], D: [] }
-    filtered.forEach(eq => {
-      const zone = (eq.zone || 'A') as ZoneKey
-      if (grouped[zone]) grouped[zone].push(eq)
-    })
-    return grouped
-  }, [filtered])
-
-  if (!user) {
-  return (
-    <AppLayout>
-      <div className="empty-state">
-        <span>Chargement utilisateur...</span>
-      </div>
-    </AppLayout>
-  )
-}
-
-  const handleAddEquipment = async (payload: Partial<Equipment>, files: File[]) => {
-    setError(null)
-    const created = await equipmentsApi.create(payload)
-    if (!created) throw new Error('La machine n’a pas pu etre creee.')
-    if (files.length > 0) {
-      await Promise.all(files.map(file => filesApi.upload(`equipments/${created.id}`, file)))
-    }
-    await auditApi.log(user.id, 'Equipement cree', created.name, `Zone ${created.zone || '—'}`)
-    await load()
-    showToast('Machine ajoutée')
-  }
-
-  const handleCreateIntervention = async (equipment: Equipment, payload: { title: string; description: string; priority: Priority; technician_id: string }) => {
-    setError(null)
-    const created = await interventionsApi.create({
-      title: payload.title,
-      description: payload.description,
-      equipment_id: equipment.id,
-      technician_id: payload.technician_id || null as never,
-      created_by: user.id,
-      priority: payload.priority,
-      status: 'a_faire',
-    })
-    if (!created) throw new Error('L’intervention n’a pas pu etre creee.')
-    await auditApi.log(user.id, 'Intervention creee', payload.title, `Equipement: ${equipment.name}`)
-    showToast('Intervention creee')
-    router.push('/interventions')
-  }
-
-  const handleDelete = async (equipment: Equipment) => {
-    if (!confirm(`Supprimer "${equipment.name}" ?
-
-Cette action est irréversible.`)) return
+  const openDetail = async (interv: Intervention) => {
+    setSelected(interv)
+    setDetailLoading(true)
     try {
-      const { supabase } = await import('@/lib/supabase')
-      const { error } = await supabase.from('equipments').delete().eq('id', equipment.id)
-      if (error) throw error
-      setLocalEq(prev => (prev.length > 0 ? prev : equipments).filter(e => e.id !== equipment.id))
-      setSelected(null)
-      showToast('Machine supprimée')
-      auditApi.log(user!.id, 'Machine supprimée', equipment.name, `Zone ${equipment.zone}`)
+      const full = await interventionsApi.getById(interv.id)
+      if (full) setSelected(full)
+    } catch {}
+    setDetailLoading(false)
+  }
+
+  if (!user) return null
+
+  const isTech = user.role === 'technician'
+  const list = isTech ? interventions.filter(i => i.technician_id === user.id || i.created_by === user.id) : interventions
+  const filtered = filter === 'all' ? list : list.filter(i => i.status === filter)
+
+  const showToast = (message: string) => { setToast(message); setTimeout(() => setToast(null), 3000) }
+
+  const updateStatus = async (interv: Intervention, status: 'a_faire'|'en_cours'|'termine'|'valide') => {
+    updateIntervention(interv.id, { status })
+    setSelected(prev => prev?.id === interv.id ? { ...prev, status } : prev)
+    interventionsApi.updateStatus(interv.id, status)
+    auditApi.log(user.id, 'Statut modifié', interv.title, `→ ${STATUS_CONFIG[status].label}`)
+  }
+
+  const createIntervention = async (payload: any) => {
+    setError(null)
+    try {
+      const created = await interventionsApi.create({
+        ...payload,
+        organization_id: user.organization_id,
+      })
+      if (created) addIntervention(created)
+      showToast('Intervention créée')
+      setShowNew(false)
     } catch (e: any) {
-      alert('Erreur : ' + (e.message || 'Suppression échouée'))
+      setError(e.message || "Impossible de créer l'intervention.")
+      throw e
     }
-  }
-
-  const handleStatusChange = async (equipment: Equipment, status: EqStatus) => {
-    if (!canManage) return
-    // Optimiste — pas de rechargement
-    setLocalEq(prev => (prev.length > 0 ? prev : equipments).map(e => e.id === equipment.id ? { ...e, status } : e))
-    setSelected(prev => prev ? { ...prev, status } : prev)
-    equipmentsApi.update(equipment.id, { status })
-    auditApi.log(user.id, 'Statut equipement modifie', equipment.name, `→ ${EQ_STATUS_CONFIG[status].label}`)
-  }
-
-  const handleLinkPart = async (equipment: Equipment, partId: string) => {
-    await equipmentsApi.linkPart(equipment.id, partId)
-    showToast('Piece associee a la machine')
-  }
-
-  const handleUnlinkPart = async (equipment: Equipment, partId: string) => {
-    await equipmentsApi.unlinkPart(equipment.id, partId)
-    showToast('Piece retiree de la compatibilite')
-  }
-
-  const handleUploadEquipmentFiles = async (equipment: Equipment, files: File[]) => {
-    if (files.length > 0) {
-      await Promise.all(files.map(file => filesApi.upload(`equipments/${equipment.id}`, file)))
-    }
-    showToast('Fichier(s) machine ajoute(s)')
-  }
-
-  const handleUpdateMaintenance = async (equipment: Equipment, updates: Partial<Equipment>) => {
-    if (!canManage) return
-    await equipmentsApi.update(equipment.id, updates)
-    await auditApi.log(user.id, 'Maintenance preventive modifiee', equipment.name, `Prochaine: ${updates.next_preventive || equipment.next_preventive || '—'}`)
-    await load()
-    setSelected(prev => prev ? { ...prev, ...updates } : prev)
-    showToast('Maintenance sauvegardee')
   }
 
   return (
     <AppLayout>
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 999, background: 'var(--acc)', color: '#000', padding: '10px 20px', borderRadius: 8, fontWeight: 600, fontSize: 13, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
-          ✓ {toast}
-        </div>
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 999, background: 'var(--acc)', color: '#000', padding: '10px 20px', borderRadius: 8, fontWeight: 600, fontSize: 13, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>✓ {toast}</div>
       )}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
         <div>
-          <div className="page-title">Plan du site</div>
-          <div className="page-sub">Vue machines reliee a Supabase, par zone et par statut</div>
+          <div className="page-title">{isTech ? 'Mes ordres de travail' : 'Interventions'}</div>
+          <div className="page-sub">{list.length} OT au total</div>
         </div>
-        {canManage && (
-          <button className="btn btn-primary" onClick={() => setShowAddMachine(true)}>
-            + Ajouter une machine
-          </button>
-        )}
+        <button onClick={() => setShowNew(true)} className="btn btn-primary"><span>+</span> Nouveau</button>
       </div>
 
-      {error && (
-        <div className="alert-bar" style={{ background: 'rgba(255,71,87,.08)', border: '1px solid rgba(255,71,87,.25)', color: '#ff4757' }}>
-          {error}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setStatusFilter('all')}
-          style={statusFilter === 'all' ? { borderColor: 'var(--acc)', color: 'var(--acc)', background: 'var(--acc-dim)' } : undefined}
-        >
-          Tous
-        </button>
-        {(Object.keys(EQ_STATUS_CONFIG) as EqStatus[]).map(status => {
-          const cfg = EQ_STATUS_CONFIG[status]
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+        {[['all','Tous',list.length], ...(Object.entries(STATUS_CONFIG) as any[]).map(([k,v]) => [k, v.label, list.filter((i: Intervention) => i.status === k).length])].map(([k,l,c]) => {
+          const sc = k !== 'all' ? STATUS_CONFIG[k as keyof typeof STATUS_CONFIG] : null
           return (
-            <button
-              key={status}
-              className="btn btn-ghost btn-sm"
-              onClick={() => setStatusFilter(status)}
-              style={statusFilter === status ? {
-                borderColor: cfg.color,
-                color: cfg.color,
-                background: `${cfg.color}18`,
-              } : undefined}
-            >
-              {cfg.label}
+            <button key={k} onClick={() => setFilter(k)} className="btn btn-ghost btn-sm" style={filter === k ? { borderColor: sc?.color || '#00c896', color: sc?.color || '#00c896', background: sc?.bg || 'rgba(0,200,150,.12)' } : {}}>
+              {l} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, opacity: .7 }}>{c}</span>
             </button>
           )
         })}
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--t2)', fontFamily: 'var(--font-mono)' }}>
-          {filtered.length} equipement(s)
-        </span>
       </div>
 
-      <div className="card" style={{ marginBottom: 16, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--b0)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontWeight: 700 }}>Cartographie machines</span>
-          <span style={{ fontSize: 11, color: 'var(--t2)' }}>Cliquez sur une machine pour ouvrir sa fiche</span>
-        </div>
-
-        <div style={{ padding: 16 }}>
-          {/* Toggle plan photo / plan schématique */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            <button onClick={() => setPlanMode('schema')} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: planMode === 'schema' ? 'rgba(0,200,150,.15)' : 'transparent', color: planMode === 'schema' ? '#00c896' : 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>Schématique</button>
-            <button onClick={() => setPlanMode('photo')} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: planMode === 'photo' ? 'rgba(0,200,150,.15)' : 'transparent', color: planMode === 'photo' ? '#00c896' : 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>Plan réel</button>
-          </div>
-
-          <div style={{ position: 'relative', width: '100%', borderRadius: 10, overflow: 'hidden', background: '#080909' }}>
-            {/* Image du plan réel en fond */}
-            {planMode === 'photo' && (
-              <img
-                src="/plan-site.png"
-                alt="Plan du site"
-                style={{ width: '100%', display: 'block', opacity: 0.85, filter: 'brightness(0.9) contrast(1.1)' }}
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-              />
-            )}
-
-          <svg viewBox="0 0 100 100" style={{ width: '100%', minHeight: planMode === 'photo' ? 0 : 420, position: planMode === 'photo' ? 'absolute' : 'relative', top: 0, left: 0, display: 'block', background: planMode === 'photo' ? 'transparent' : '#080909' }}>
-            {planMode === 'schema' && <>
-            <rect width="100" height="100" fill="#080909" />
-            <defs>
-              <pattern id="grid-plan" width="5" height="5" patternUnits="userSpaceOnUse">
-                <path d="M5 0L0 0 0 5" fill="none" stroke="rgba(255,255,255,.025)" strokeWidth=".3" />
-              </pattern>
-            </defs>
-            <rect width="100" height="100" fill="url(#grid-plan)" />
-
-            {(Object.entries(ZONE_CONFIG) as [ZoneKey, typeof ZONE_CONFIG[ZoneKey]][]).map(([zone, cfg]) => (
-              <g key={zone}>
-                <rect x={cfg.x} y={cfg.y} width={cfg.w} height={cfg.h} rx="2" fill={`${cfg.color}10`} stroke={`${cfg.color}55`} strokeWidth=".5" />
-                <text x={cfg.x + 2} y={cfg.y + 4} fill={cfg.color} fontSize="2.4" fontFamily="JetBrains Mono" fontWeight="700">Zone {zone}</text>
-                <text x={cfg.x + 2} y={cfg.y + 7} fill={`${cfg.color}bb`} fontSize="1.9" fontFamily="JetBrains Mono">{cfg.label}</text>
-              </g>
-            ))}
-            </>}
-
-            {filtered.map(eq => {
-              const statusCfg = EQ_STATUS_CONFIG[eq.status]
-              const active = selected?.id === eq.id
-              const x = Number(eq.pos_x ?? 50)
-              const y = Number(eq.pos_y ?? 50)
-              const w = Number(eq.pos_w ?? 10)
-              const h = Number(eq.pos_h ?? 8)
-
-              return (
-                <g key={eq.id} style={{ cursor: 'pointer' }} onClick={() => setSelected(eq)}>
-                  <rect
-                    x={x} y={y} width={w} height={h} rx="1.5"
-                    fill={active ? `${eq.color}30` : `${eq.color}16`}
-                    stroke={active ? eq.color : `${eq.color}88`}
-                    strokeWidth={active ? '.8' : '.45'}
-                    style={{ filter: active ? `drop-shadow(0 0 4px ${eq.color}88)` : 'none', transition: 'all .12s' }}
-                  />
-                  {/* Icône machine générique */}
-                  <rect x={x+1} y={y+1.5} width={3} height={h-3} rx=".5" fill={`${eq.color}40`} />
-                  <rect x={x+1.3} y={y+1.8} width={2.4} height={1.2} rx=".3" fill={eq.color} opacity=".6" />
-                  {/* Pastille statut */}
-                  <circle cx={x + w - 1.4} cy={y + 1.4} r="1.1" fill={statusCfg.color} />
-                  {/* Badge alimentaire */}
-                  {eq.food_safe && <text x={x + 1} y={y + 2.8} fill="rgba(0,200,150,.85)" fontSize="1.7" fontFamily="JetBrains Mono">✓</text>}
-                  {/* Nom machine */}
-                  <text
-                    x={x + w / 2 + 1}
-                    y={y + h / 2 + .6}
-                    textAnchor="middle"
-                    fill={active ? eq.color : 'rgba(255,255,255,.85)'}
-                    fontSize="1.9"
-                    fontFamily="JetBrains Mono"
-                    fontWeight="700"
-                  >
-                    {eq.name.length > 12 ? `${eq.name.slice(0, 11)}…` : eq.name}
-                  </text>
-                  {/* Indicateur QR */}
-                  <text x={x + w - 2.8} y={y + h - 1} fill={`${eq.color}99`} fontSize="1.5" fontFamily="JetBrains Mono">QR</text>
-                </g>
-              )
-            })}
-
-            {planMode === 'schema' && (
-              <g transform="translate(95,6)">
-                <circle cx="0" cy="0" r="2.8" fill="#111315" stroke="rgba(255,255,255,.08)" strokeWidth=".4" />
-                <text x="0" y=".8" textAnchor="middle" fill="#e4e8f0" fontSize="2.5" fontFamily="JetBrains Mono" fontWeight="700">N</text>
-              </g>
-            )}
-          </svg>
-          </div>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="empty-state"><span>Chargement…</span></div>
-      ) : (
-        (Object.entries(groupedByZone) as [ZoneKey, Equipment[]][]).map(([zone, zoneEquipments]) => {
-          if (zoneEquipments.length === 0) return null
-          const zoneCfg = ZONE_CONFIG[zone]
+      {/* Mobile */}
+      <div className="show-mobile" style={{ display: 'none', flexDirection: 'column', gap: 10 }}>
+        {filtered.map((i: Intervention) => {
+          const eq = equipments.find(e => e.id === i.equipment_id)
+          const sc = STATUS_CONFIG[i.status]
+          const pc = PRIORITY_CONFIG[i.priority]
           return (
-            <div key={zone} style={{ marginBottom: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <div style={{ width: 10, height: 10, borderRadius: 3, background: zoneCfg.color }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: zoneCfg.color }}>Zone {zone}</span>
-                <span style={{ fontSize: 12, color: 'var(--t2)' }}>{zoneCfg.label}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--t2)', fontFamily: 'var(--font-mono)' }}>{zoneEquipments.length} machine(s)</span>
-              </div>
-
-              <div className="grid-3">
-                {zoneEquipments.map(eq => {
-                  const statusCfg = EQ_STATUS_CONFIG[eq.status]
-                  return (
-                    <div key={eq.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(eq)}>
-                      <div style={{ height: 3, background: eq.color || zoneCfg.color }} />
-                      <div style={{ padding: 14 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                          <span className="badge" style={{ background: `${statusCfg.color}18`, color: statusCfg.color }}>{statusCfg.label}</span>
-                          {eq.food_safe && <span className="badge" style={{ background: 'rgba(0,200,150,.12)', color: 'var(--acc)' }}>Alim.</span>}
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{eq.name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 4 }}>{eq.location || 'Localisation non renseignee'}</div>
-                        <div style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>{eq.serial || 'Sans n° de serie'}</div>
-                        <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 8 }}>
-                          Inspection : <span style={{ color: eq.next_inspection && new Date(eq.next_inspection) < new Date() ? 'var(--red)' : 'var(--t1)' }}>{fmt(eq.next_inspection)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+            <div key={i.id} style={{ background: '#161719', border: '1px solid rgba(255,255,255,.06)', borderRadius: 12, overflow: 'hidden' }} onClick={() => openDetail(i)}>
+              <div style={{ height: 3, background: sc.color }} />
+              <div style={{ padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                  <span style={{ fontSize: 10, color: pc.color, fontFamily: 'var(--font-mono)' }}>{pc.label.toUpperCase()}</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{i.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>{eq?.name} · {fmt(i.created_at)}</div>
               </div>
             </div>
           )
-        })
+        })}
+        {filtered.length === 0 && !loading && <div className="empty-state"><div>✅</div><span>Aucune intervention</span></div>}
+      </div>
+
+      {/* Desktop */}
+      <div className="card hide-mobile">
+        <table className="tbl">
+          <thead><tr><th>Titre</th><th>Équipement</th><th>Priorité</th><th>Statut</th><th>Rapport</th><th>Date</th></tr></thead>
+          <tbody>
+            {loading && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--t2)' }}>Chargement…</td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={6}><div className="empty-state"><span>✅</span><span>Aucune intervention</span></div></td></tr>}
+            {filtered.map((i: Intervention) => {
+              const eq = equipments.find(e => e.id === i.equipment_id)
+              const sc = STATUS_CONFIG[i.status]
+              const pc = PRIORITY_CONFIG[i.priority]
+              return (
+                <tr key={i.id} onClick={() => openDetail(i)}>
+                  <td>
+                    <div style={{ fontWeight: 600, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.title}</div>
+                    {i.production_stopped && <div style={{ fontSize: 10, color: '#ff4757' }}>⚠️ Prod. arrêtée</div>}
+                    {i.food_impact && <div style={{ fontSize: 10, color: '#00c896' }}>🛡️ Impact alim.</div>}
+                  </td>
+                  <td style={{ fontSize: 12, color: 'var(--t2)' }}>{eq?.name || '—'}</td>
+                  <td><span style={{ fontSize: 12, color: pc.color, fontWeight: 600 }}>{pc.label}</span></td>
+                  <td><span className="badge" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span></td>
+                  <td>{i.report_verdict ? <span style={{ color: '#00c896', fontSize: 12 }}>✅ Signé</span> : <span style={{ color: 'var(--t3)', fontSize: 12 }}>En attente</span>}</td>
+                  <td style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--t2)' }}>{fmt(i.created_at)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal détail */}
+      {selected && !showReport && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSelected(null)}>
+          <div className="modal-box" style={{ maxWidth: 640 }}>
+            <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid rgba(255,255,255,.04)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 17, fontWeight: 700 }}>{selected.title}</div>
+                <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>#{selected.id.slice(0,8).toUpperCase()} · {fmtDT(selected.created_at)}</div>
+              </div>
+              <button onClick={() => setSelected(null)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.08)', borderRadius: 6, color: 'var(--t2)', cursor: 'pointer', padding: '4px 8px', fontSize: 16, flexShrink: 0 }}>×</button>
+            </div>
+            <div className="modal-body" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {detailLoading && <div style={{ fontSize: 11, color: 'var(--t3)', textAlign: 'center' }}>Chargement…</div>}
+              <div>
+                <div className="form-label" style={{ marginBottom: 8, display: 'block' }}>Statut</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {(Object.entries(STATUS_CONFIG) as any[]).map(([k, v]) => (
+                    <button key={k} onClick={() => updateStatus(selected, k)} style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${selected.status === k ? v.color : 'rgba(255,255,255,.08)'}`, background: selected.status === k ? v.bg : 'transparent', color: selected.status === k ? v.color : 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {selected.description && <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,.03)', borderRadius: 8, fontSize: 13, color: 'var(--t2)', lineHeight: 1.6 }}>{selected.description}</div>}
+              {selected.report_verdict && (
+                <div style={{ padding: 14, background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 10 }}>
+                  <div style={{ fontWeight: 600, color: '#00c896', marginBottom: 8 }}>✅ Rapport complété</div>
+                  <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 8 }}>{selected.report_actions}</div>
+                  <div style={{ fontSize: 12, color: 'var(--t2)' }}>Verdict : <strong>{selected.report_verdict}</strong> · Durée : {selected.report_duration} min</div>
+                  <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>Signé le {fmtDT(selected.signed_at || '')}</div>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openPdf(selected, siteConfig)} style={{ marginTop: 10, borderColor: 'rgba(0,200,150,.25)', color: '#00c896' }}>Imprimer / PDF</button>
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,.04)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
+              {(selected.technician_id === user.id || ['admin','chef'].includes(user.role)) && selected.status !== 'valide' && !selected.report_verdict && (
+                <button onClick={() => setShowReport(true)} style={{ background: '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>📝 Remplir le rapport</button>
+              )}
+              {['admin','chef'].includes(user.role) && (selected.status === 'termine' || selected.report_verdict) && selected.status !== 'valide' && (
+                <button onClick={() => updateStatus(selected, 'valide')} style={{ background: '#a855f7', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>⭐ Valider</button>
+              )}
+              <button onClick={() => setSelected(null)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.08)', borderRadius: 6, padding: '8px 14px', color: 'var(--t2)', cursor: 'pointer' }}>Fermer</button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {selected && (
-        <EquipmentDetailModal
-          equipment={selected}
-          canManage={canManage}
-          onClose={() => setSelected(null)}
-          onCreateIntervention={(equipment) => {
-            setSelected(null)
-            setCreateFor(equipment)
-          }}
-          onStatusChange={handleStatusChange}
-          onLinkPart={handleLinkPart}
-          onUnlinkPart={handleUnlinkPart}
-          onUploadFiles={handleUploadEquipmentFiles}
-          onUpdateMaintenance={handleUpdateMaintenance}
-          onDelete={handleDelete}
-        />
-      )}
-
-      {showAddMachine && (
-        <AddEquipmentModal
-          error={error}
-          onClose={() => setShowAddMachine(false)}
-          onSave={async (payload, files) => {
-            try {
-              await handleAddEquipment(payload, files)
-              setShowAddMachine(false)
-            } catch (e: any) {
-              setError(e.message || 'Impossible d’ajouter la machine.')
-              throw e
-            }
-          }}
-        />
-      )}
-
-      {createFor && (
-        <NewInterventionModal
-          equipment={createFor}
-          user={user}
-          technicians={technicians}
-          error={error}
-          onClose={() => setCreateFor(null)}
-          onSave={async payload => {
-            try {
-              await handleCreateIntervention(createFor, payload)
-              setCreateFor(null)
-            } catch (e: any) {
-              setError(e.message || 'Impossible de creer l’intervention.')
-              throw e
-            }
-          }}
-        />
-      )}
+      {showNew && <NewIntModal equipments={equipments} technicians={technicians} user={user} error={error} onClose={() => { setShowNew(false); setError(null) }} onSave={createIntervention} />}
+      {selected && showReport && <ReportForm interv={selected} equipment={equipments.find(e => e.id === selected.equipment_id)} user={user} onSave={async () => { setShowReport(false); await reloadInterventions() }} onClose={() => setShowReport(false)} />}
     </AppLayout>
   )
 }
