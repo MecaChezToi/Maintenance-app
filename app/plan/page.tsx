@@ -250,8 +250,8 @@ function EquipmentDetailModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: 760, maxHeight: '90dvh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '20px' }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#161719', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, width: '100%', maxWidth: 760, maxHeight: '88dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{equipment.name}</div>
@@ -262,7 +262,7 @@ function EquipmentDetailModal({
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
         </div>
 
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: '1 1 0', minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'scroll', overflowX: 'hidden', flex: 1, minHeight: 0 }}>
           <div style={{ background: 'var(--s3)', borderRadius: 10, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
               <span className="badge" style={{ background: `${statusCfg.color}18`, color: statusCfg.color }}>
@@ -560,14 +560,14 @@ function AddEquipmentModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: 620, maxHeight: '90dvh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#161719', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, width: '100%', maxWidth: 620, maxHeight: '88dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontSize: 17, fontWeight: 700 }}>Ajouter une machine</div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
         </div>
 
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'scroll', flex: 1, minHeight: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <label className="form-label">Nom *</label>
             <input className="form-input" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="ex: Compresseur Atlas #4" />
@@ -723,7 +723,7 @@ function NewInterventionModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box" style={{ maxWidth: 600 }}>
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
           <div>
