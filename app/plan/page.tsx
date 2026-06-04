@@ -249,7 +249,7 @@ function EquipmentDetailModal({
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: 760 }}>
+      <div className="modal-box" style={{ maxWidth: 760, maxHeight: '90dvh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{equipment.name}</div>
@@ -260,7 +260,7 @@ function EquipmentDetailModal({
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
         </div>
 
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1, minHeight: 0 }}>
           <div style={{ background: 'var(--s3)', borderRadius: 10, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
               <span className="badge" style={{ background: `${statusCfg.color}18`, color: statusCfg.color }}>
@@ -554,7 +554,7 @@ function AddEquipmentModal({
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: 620 }}>
+      <div className="modal-box" style={{ maxWidth: 620, maxHeight: '90dvh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontSize: 17, fontWeight: 700 }}>Ajouter une machine</div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
