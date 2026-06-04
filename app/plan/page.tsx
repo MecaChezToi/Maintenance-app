@@ -800,7 +800,7 @@ function NewInterventionModal({
 export default function PlanPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const { equipments, technicians, loading, reload } = useData()
+  const { equipments, technicians, loading, reload, reloadInterventions } = useData()
   const [localEq, setLocalEq] = useState<Equipment[]>([])
   const displayEquipments = localEq.length > 0 ? localEq : equipments
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
