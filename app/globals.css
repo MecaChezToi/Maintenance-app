@@ -315,6 +315,7 @@ input:-webkit-autofill:focus {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  padding: 0;
 }
 .modal-box {
   background: var(--s2);
@@ -325,11 +326,18 @@ input:-webkit-autofill:focus {
   max-height: 92dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   animation: slideUp .22s ease;
 }
+/* Contenu scrollable à l'intérieur du modal */
+.modal-box > div:not(:first-child):not(:last-child) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 @media (min-width: 769px) {
-  .modal-overlay { align-items: center; }
-  .modal-box { border-radius: var(--r3); align-self: center; margin: 20px; }
+  .modal-overlay { align-items: center; padding: 20px; }
+  .modal-box { border-radius: var(--r3); max-height: 90dvh; }
 }
 
 /* Separator */
