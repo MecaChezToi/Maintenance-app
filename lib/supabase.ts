@@ -247,13 +247,14 @@ export const photosApi = {
 export const filesApi = {
   list: async (folder: string) => {
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET).list(folder, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } })
-    ensureNoError(error, `Liste fichiers ${folder}`)
+    if (error) { console.warn('[Storage] list error:', error.message); return [] }
     const files = (data ?? []).filter((item: any) => item.name && !item.id?.endsWith('/'))
-    return Promise.all(files.map(async (item: any) => {
+    return files.map((item: any) => {
       const path = `${folder}/${item.name}`
-      const { data: signed } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrl(path, 3600)
-      return { name: item.name, path, url: signed?.signedUrl || '', created_at: item.created_at || null, size: item.metadata?.size || null }
-    }))
+      // URL publique directe — bucket public
+      const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
+      return { name: item.name, path, url: urlData.publicUrl, created_at: item.created_at || null, size: item.metadata?.size || null }
+    })
   },
   upload: async (folder: string, file: File) => {
     const path = `${folder}/${Date.now()}-${sanitizeFileName(file.name)}`

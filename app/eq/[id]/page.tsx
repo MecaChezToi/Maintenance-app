@@ -41,6 +41,7 @@ export default function EquipmentScanPage() {
         created_by: user.id,
         priority: 'normale',
         status: 'a_faire',
+        organization_id: user.organization_id,
       })
       router.push('/interventions')
     } finally {
