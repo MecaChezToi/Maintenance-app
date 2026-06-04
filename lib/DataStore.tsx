@@ -1,6 +1,4 @@
-// lib/DataStore.tsx — Store global centralisé
-// Les données sont chargées UNE SEULE FOIS et partagées entre toutes les pages
-// Plus de rechargement à chaque navigation
+// lib/DataStore.tsx — Store global centralisé v2
 'use client'
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from 'react'
@@ -33,7 +31,16 @@ const DataContext = createContext<DataContextType>({
   addIntervention: () => {},
 })
 
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes — pas de rechargement avant ça
+const CACHE_TTL = 5 * 60 * 1000
+const TIMEOUT_MS = 8000 // 8s max par requête
+
+// Helper: requête avec timeout
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))
+  ])
+}
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DataState>({
@@ -41,49 +48,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
     siteConfig: null, loading: true, lastLoad: null,
   })
   const loadingRef = useRef(false)
+  const lastLoadRef = useRef<number | null>(null)
 
   const reload = useCallback(async (force = false) => {
-    // Ne pas recharger si données récentes (sauf force)
-    if (!force && state.lastLoad && Date.now() - state.lastLoad < CACHE_TTL) return
+    if (!force && lastLoadRef.current && Date.now() - lastLoadRef.current < CACHE_TTL) return
     if (loadingRef.current) return
     loadingRef.current = true
 
     try {
-      // 1. Interventions d'abord — visible immédiatement
-      const interventions = await interventionsApi.getAll()
-      setState(s => ({ ...s, interventions, loading: false, lastLoad: Date.now() }))
-
-      // 2. Reste en arrière-plan — ne bloque pas l'UI
-      const [equipments, profiles, parts, siteConfig] = await Promise.all([
-        equipmentsApi.getAll(),
-        profilesApi.getAll(),
-        partsApi.getAll(),
-        siteConfigApi.get(),
+      // Charger tout en parallèle avec timeout — plus rapide et plus fiable
+      const [equipments, interventions, profiles, parts, siteConfig] = await Promise.all([
+        withTimeout(equipmentsApi.getAll(), TIMEOUT_MS, []),
+        withTimeout(interventionsApi.getAll(), TIMEOUT_MS, []),
+        withTimeout(profilesApi.getAll(), TIMEOUT_MS, []),
+        withTimeout(partsApi.getAll(), TIMEOUT_MS, []),
+        withTimeout(siteConfigApi.get(), TIMEOUT_MS, null),
       ])
-      setState(s => ({
-        ...s,
+
+      lastLoadRef.current = Date.now()
+      setState({
         equipments,
-        technicians: profiles.filter(p => p.role === 'technician'),
+        interventions,
+        technicians: (profiles as Profile[]).filter(p => p.role === 'technician'),
         parts,
         siteConfig,
-      }))
+        loading: false,
+        lastLoad: lastLoadRef.current,
+      })
     } catch (e) {
-      console.error('[DataStore] Erreur chargement:', e)
+      console.error('[DataStore] Erreur:', e)
       setState(s => ({ ...s, loading: false }))
     } finally {
       loadingRef.current = false
     }
-  }, [state.lastLoad])
+  }, [])
 
-  // Rechargement interventions seules (après action)
   const reloadInterventions = useCallback(async () => {
     try {
-      const interventions = await interventionsApi.getAll()
+      const interventions = await withTimeout(interventionsApi.getAll(), TIMEOUT_MS, [])
       setState(s => ({ ...s, interventions }))
     } catch {}
   }, [])
 
-  // Mise à jour optimiste locale
   const updateIntervention = useCallback((id: string, updates: Partial<Intervention>) => {
     setState(s => ({
       ...s,
@@ -95,8 +101,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, interventions: [interv, ...s.interventions] }))
   }, [])
 
-  // Chargement initial
-  useEffect(() => { reload(true) }, [])
+  useEffect(() => {
+    reload(true)
+    // Timeout de sécurité — débloquer après 10s même si Supabase ne répond pas
+    const t = setTimeout(() => {
+      setState(s => s.loading ? { ...s, loading: false } : s)
+    }, 10000)
+    return () => clearTimeout(t)
+  }, [])
 
   return (
     <DataContext.Provider value={{ ...state, reload, reloadInterventions, updateIntervention, addIntervention }}>
