@@ -102,13 +102,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    reload(true)
-    // Timeout de sécurité — débloquer après 10s même si Supabase ne répond pas
+    // Appel direct sans passer par reload pour éviter les dépendances cycliques
+    loadingRef.current = true
     const t = setTimeout(() => {
       setState(s => s.loading ? { ...s, loading: false } : s)
+      loadingRef.current = false
     }, 10000)
+
+    Promise.all([
+      withTimeout(equipmentsApi.getAll(), TIMEOUT_MS, []),
+      withTimeout(interventionsApi.getAll(), TIMEOUT_MS, []),
+      withTimeout(profilesApi.getAll(), TIMEOUT_MS, []),
+      withTimeout(partsApi.getAll(), TIMEOUT_MS, []),
+      withTimeout(siteConfigApi.get(), TIMEOUT_MS, null),
+    ]).then(([equipments, interventions, profiles, parts, siteConfig]) => {
+      clearTimeout(t)
+      lastLoadRef.current = Date.now()
+      setState({
+        equipments: equipments as Equipment[],
+        interventions: interventions as Intervention[],
+        technicians: (profiles as Profile[]).filter(p => p.role === 'technician'),
+        parts: parts as Part[],
+        siteConfig: siteConfig as SiteConfig | null,
+        loading: false,
+        lastLoad: lastLoadRef.current,
+      })
+    }).catch(() => {
+      clearTimeout(t)
+      setState(s => ({ ...s, loading: false }))
+    }).finally(() => {
+      loadingRef.current = false
+    })
+
     return () => clearTimeout(t)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <DataContext.Provider value={{ ...state, reload, reloadInterventions, updateIntervention, addIntervention }}>
