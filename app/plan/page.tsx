@@ -250,9 +250,9 @@ function EquipmentDetailModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: 760, height: '90dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.85)', backdropFilter: 'blur(6px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ maxWidth: 760, margin: '20px auto', background: 'var(--s2)', border: '1px solid var(--b1)', borderRadius: 14, minHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 12, position: 'sticky', top: 0, background: 'var(--s2)', zIndex: 1, borderRadius: '14px 14px 0 0' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{equipment.name}</div>
             <div style={{ fontSize: 11, color: 'var(--t2)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
@@ -262,7 +262,7 @@ function EquipmentDetailModal({
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
         </div>
 
-        <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
           <div style={{ background: 'var(--s3)', borderRadius: 10, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
               <span className="badge" style={{ background: `${statusCfg.color}18`, color: statusCfg.color }}>
@@ -478,7 +478,7 @@ function EquipmentDetailModal({
 
         </div>
 
-        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, position: 'sticky', bottom: 0, background: 'var(--s2)', borderRadius: '0 0 14px 14px' }}>
           {canManage && onArchive && (
             <button onClick={() => onArchive(equipment)} style={{ padding: '7px 14px', background: 'rgba(245,158,11,.1)', border: '1px solid rgba(245,158,11,.25)', borderRadius: 6, color: '#f59e0b', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               📦 Archiver
