@@ -250,8 +250,8 @@ function EquipmentDetailModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '20px' }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#161719', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, width: '100%', maxWidth: 760, maxHeight: '88dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 760 }}>
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{equipment.name}</div>
@@ -560,8 +560,8 @@ function AddEquipmentModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#161719', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, width: '100%', maxWidth: 620, maxHeight: '88dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 620 }}>
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontSize: 17, fontWeight: 700 }}>Ajouter une machine</div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
@@ -723,7 +723,7 @@ function NewInterventionModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box" style={{ maxWidth: 600 }}>
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
           <div>
