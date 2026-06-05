@@ -132,6 +132,7 @@ function EquipmentDetailModal({
   onUpdateMaintenance,
   onDelete,
   onArchive,
+  onEdit,
 }: {
   equipment: Equipment
   canManage: boolean
@@ -144,6 +145,7 @@ function EquipmentDetailModal({
   onUpdateMaintenance: (equipment: Equipment, updates: Partial<Equipment>) => Promise<void>
   onDelete?: (equipment: Equipment) => Promise<void>
   onArchive?: (equipment: Equipment) => Promise<void>
+  onEdit?: (equipment: Equipment) => void
 }) {
   const [parts, setParts] = useState<Part[]>([])
   const [allParts, setAllParts] = useState<Part[]>([])
@@ -481,6 +483,11 @@ function EquipmentDetailModal({
         </div>
 
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, position: 'sticky', bottom: 0, background: 'var(--s2)', borderRadius: '0 0 14px 14px' }}>
+          {canManage && onEdit && (
+            <button onClick={() => onEdit(equipment)} style={{ padding: '7px 14px', background: 'rgba(60,130,232,.1)', border: '1px solid rgba(60,130,232,.25)', borderRadius: 6, color: '#3c82e8', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              ✏️ Modifier
+            </button>
+          )}
           {canManage && onArchive && (
             <button onClick={() => onArchive(equipment)} style={{ padding: '7px 14px', background: 'rgba(245,158,11,.1)', border: '1px solid rgba(245,158,11,.25)', borderRadius: 6, color: '#f59e0b', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               📦 Archiver
@@ -812,6 +819,114 @@ function NewInterventionModal({
   )
 }
 
+
+// ─── EDIT MACHINE MODAL ──────────────────────────────────────
+function EditMachineModal({ equipment, onClose, onSave }: { equipment: Equipment; onClose: () => void; onSave: (updates: Partial<Equipment>) => Promise<void> }) {
+  const [form, setForm] = useState({
+    name: equipment.name || '',
+    serial: equipment.serial || '',
+    manufacturer: (equipment as any).manufacturer || '',
+    installation_date: (equipment as any).installation_date || '',
+    location: equipment.location || '',
+    category: equipment.category || '',
+    zone: (equipment.zone || 'A') as ZoneKey,
+    schema_desc: equipment.schema_desc || '',
+    manual_ref: equipment.manual_ref || '',
+    food_safe: equipment.food_safe || false,
+    next_inspection: equipment.next_inspection || '',
+  })
+  const [saving, setSaving] = useState(false)
+  const s = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(p => ({ ...p, [k]: v }))
+  const save = async () => {
+    setSaving(true)
+    try {
+      await onSave({
+        name: form.name.trim(), serial: form.serial.trim(),
+        manufacturer: form.manufacturer.trim() || null as never,
+        installation_date: form.installation_date || null as never,
+        location: form.location.trim(), category: form.category.trim(),
+        zone: form.zone, schema_desc: form.schema_desc.trim(),
+        manual_ref: form.manual_ref.trim(), food_safe: form.food_safe,
+        next_inspection: form.next_inspection || null as never,
+      })
+    } finally { setSaving(false) }
+  }
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 620 }}>
+        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--b0)', display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 700 }}>Modifier — {equipment.name}</div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
+        </div>
+        <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label className="form-label">Nom *</label>
+            <input className="form-input" value={form.name} onChange={e => s('name', e.target.value)} />
+          </div>
+          <div className="grid-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">N° de série</label>
+              <input className="form-input" value={form.serial} onChange={e => s('serial', e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Zone</label>
+              <select className="form-select" value={form.zone} onChange={e => s('zone', e.target.value as ZoneKey)}>
+                {(Object.keys(ZONE_CONFIG) as ZoneKey[]).map(z => (
+                  <option key={z} value={z}>Zone {z} — {ZONE_CONFIG[z].label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Fabricant</label>
+              <input className="form-input" value={form.manufacturer} onChange={e => s('manufacturer', e.target.value)} placeholder="ex: Bosch, Sapal..." />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Date d'installation</label>
+              <input className="form-input" type="date" value={form.installation_date} onChange={e => s('installation_date', e.target.value)} />
+            </div>
+          </div>
+          <div className="grid-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Localisation</label>
+              <input className="form-input" value={form.location} onChange={e => s('location', e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Catégorie</label>
+              <input className="form-input" value={form.category} onChange={e => s('category', e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label className="form-label">Description</label>
+            <textarea className="form-input" value={form.schema_desc} onChange={e => s('schema_desc', e.target.value)} style={{ minHeight: 70 }} />
+          </div>
+          <div className="grid-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Réf. manuel</label>
+              <input className="form-input" value={form.manual_ref} onChange={e => s('manual_ref', e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Prochaine inspection</label>
+              <input className="form-input" type="date" value={form.next_inspection} onChange={e => s('next_inspection', e.target.value)} />
+            </div>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.food_safe} onChange={e => s('food_safe', e.target.checked)} style={{ accentColor: '#00c896', width: 15, height: 15 }} />
+            <span style={{ fontSize: 13 }}>Zone alimentaire</span>
+          </label>
+        </div>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--b0)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
+          <button onClick={save} disabled={saving || !form.name.trim()} className="btn btn-primary">
+            {saving ? 'Enregistrement…' : '✓ Enregistrer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PlanPage() {
   const { user } = useAuth()
   const router = useRouter()
@@ -822,6 +937,7 @@ export default function PlanPage() {
   const [selected, setSelected] = useState<Equipment | null>(null)
   const [planMode, setPlanMode] = useState<'schema' | 'photo'>('schema')
   const [showAddMachine, setShowAddMachine] = useState(false)
+  const [editMachine, setEditMachine] = useState<Equipment | null>(null)
   const [createFor, setCreateFor] = useState<Equipment | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -890,6 +1006,11 @@ export default function PlanPage() {
     await auditApi.log(user.id, 'Intervention creee', payload.title, `Equipement: ${equipment.name}`)
     showToast('Intervention creee')
     router.push('/interventions')
+  }
+
+  const handleEdit = (equipment: Equipment) => {
+    setEditMachine(equipment)
+    setSelected(null)
   }
 
   const handleArchive = async (equipment: Equipment) => {
@@ -1038,7 +1159,7 @@ Cette action est irréversible.`)) return
               />
             )}
 
-          <svg viewBox="0 0 100 100" style={{ width: '100%', minHeight: planMode === 'photo' ? 0 : 220, position: planMode === 'photo' ? 'absolute' : 'relative', top: 0, left: 0, display: 'block', background: planMode === 'photo' ? 'transparent' : '#080909' }}>
+          <svg viewBox="0 0 100 100" style={{ width: '100%', minHeight: planMode === 'photo' ? 0 : 180, position: planMode === 'photo' ? 'absolute' : 'relative', top: 0, left: 0, display: 'block', background: planMode === 'photo' ? 'transparent' : '#080909' }}>
             {planMode === 'schema' && <>
             <rect width="100" height="100" fill="#080909" />
             <defs>
@@ -1168,6 +1289,7 @@ Cette action est irréversible.`)) return
           onUpdateMaintenance={handleUpdateMaintenance}
           onDelete={handleDelete}
           onArchive={handleArchive}
+          onEdit={handleEdit}
         />
       )}
 
