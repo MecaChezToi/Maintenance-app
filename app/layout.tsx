@@ -3,6 +3,7 @@ import { Outfit, JetBrains_Mono } from 'next/font/google'
 import { AuthProvider } from '@/components/layout/AuthProvider'
 import { DataProvider } from '@/lib/DataStore'
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
+import { OfflineProvider } from '@/components/OfflineProvider'
 import './globals.css'
 
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit', display: 'swap' })
@@ -32,10 +33,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthProvider>
-          <DataProvider>
+          <OfflineProvider>
+      <DataProvider>
             <ServiceWorkerRegister />
             {children}
           </DataProvider>
+      </OfflineProvider>
         </AuthProvider>
       </body>
     </html>
