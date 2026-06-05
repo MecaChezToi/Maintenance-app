@@ -133,6 +133,7 @@ function EquipmentDetailModal({
   onDelete,
   onArchive,
   onEdit,
+  organizationId,
 }: {
   equipment: Equipment
   canManage: boolean
@@ -146,6 +147,7 @@ function EquipmentDetailModal({
   onDelete?: (equipment: Equipment) => Promise<void>
   onArchive?: (equipment: Equipment) => Promise<void>
   onEdit?: (equipment: Equipment) => void
+  organizationId?: string
 }) {
   const [parts, setParts] = useState<Part[]>([])
   const [allParts, setAllParts] = useState<Part[]>([])
@@ -519,7 +521,7 @@ function EquipmentDetailModal({
                         const created = await preventiveApi.createPlan({
                           ...newPlan,
                           equipment_id: equipment.id,
-                          organization_id: (equipment as any).organization_id,
+                          organization_id: organizationId || '',
                           active: true,
                         })
                         if (created) {
@@ -1369,6 +1371,7 @@ Cette action est irréversible.`)) return
           onDelete={handleDelete}
           onArchive={handleArchive}
           onEdit={handleEdit}
+          organizationId={user?.organization_id}
         />
       )}
 
