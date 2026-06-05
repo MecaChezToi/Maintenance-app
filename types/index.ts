@@ -57,6 +57,8 @@ export interface Equipment {
   preventive_interval_days?: number | null
   preventive_tasks?: string[] | null
   next_preventive?: string | null
+  manufacturer?: string | null
+  installation_date?: string | null
   created_at: string
   updated_at: string
   parts?: Part[]

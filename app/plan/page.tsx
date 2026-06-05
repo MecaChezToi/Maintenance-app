@@ -513,6 +513,8 @@ function AddEquipmentModal({
   const [form, setForm] = useState({
     name: '',
     serial: '',
+    manufacturer: '',
+    installation_date: '',
     location: '',
     zone: 'A' as ZoneKey,
     category: 'Machine-outil',
@@ -550,6 +552,8 @@ function AddEquipmentModal({
         pos_w: 10,
         pos_h: 8,
         last_inspection: new Date().toISOString().split('T')[0],
+        manufacturer: form.manufacturer.trim() || null as never,
+        installation_date: form.installation_date || null as never,
         next_inspection: form.next_inspection || null as never,
         preventive_interval_days: preventiveDays > 0 ? preventiveDays : null as never,
         preventive_tasks: form.preventive_tasks.length > 0 ? form.preventive_tasks : null as never,
@@ -587,6 +591,17 @@ function AddEquipmentModal({
                   <option key={zone} value={zone}>Zone {zone} — {ZONE_CONFIG[zone].label}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="grid-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Fabricant</label>
+              <input className="form-input" value={form.manufacturer} onChange={e => setField('manufacturer', e.target.value)} placeholder="ex: Bosch, Sapal..." />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label className="form-label">Date d'installation</label>
+              <input className="form-input" type="date" value={form.installation_date} onChange={e => setField('installation_date', e.target.value)} />
             </div>
           </div>
 
