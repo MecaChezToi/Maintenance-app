@@ -1,7 +1,7 @@
 // lib/offlineApi.ts — APIs avec support offline (first-write-wins)
-import { networkStatus, offlineCache, pendingWrites } from './offlineDb'
-import { syncManager } from './syncManager'
-import { interventionsApi, preventiveApi, supabase } from './supabase'
+import { networkStatus, offlineCache, pendingWrites } from '@/lib/offlineDb'
+import { syncManager } from '@/lib/syncManager'
+import { interventionsApi, preventiveApi, supabase } from '@/lib/supabase'
 import type { Intervention } from '@/types'
 
 // Générer un UUID v4 simple

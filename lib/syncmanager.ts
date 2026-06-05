@@ -1,6 +1,6 @@
 // lib/syncManager.ts — Synchronisation offline → Supabase
-import { pendingWrites, offlineCache, networkStatus } from './offlineDb'
-import { supabase } from './supabase'
+import { pendingWrites, offlineCache, networkStatus } from '@/lib/offlineDb'
+import { supabase } from '@/lib/supabase'
 
 let isSyncing = false
 let syncCallbacks: Array<(count: number) => void> = []
