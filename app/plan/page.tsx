@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import { useAuth } from '@/components/layout/AuthProvider'
 import { auditApi, equipmentsApi, filesApi, interventionsApi, partsApi, preventiveApi } from '@/lib/supabase'
+import { networkStatus, pendingWrites } from '@/lib/offlineDb'
+import { syncManager } from '@/lib/syncManager'
 import { useData } from '@/lib/DataStore'
 import type { Equipment, EqStatus, Part, Priority, Profile, PreventivePlan } from '@/types'
 import { EQ_STATUS_CONFIG, PRIORITY_CONFIG, URGENCY_CONFIG as UC } from '@/types'
@@ -1119,19 +1121,28 @@ Cette action est irréversible.`)) return
     // Mise à jour optimiste locale immédiate
     setLocalEq(prev => (prev.length > 0 ? prev : equipments).map(e => e.id === equipment.id ? { ...e, status } : e))
     setSelected(prev => prev ? { ...prev, status } : prev)
+    updateEquipment(equipment.id, { status })
+
+    const now = new Date().toISOString()
+    if (!networkStatus.isOnline()) {
+      // Offline → sauvegarder en queue
+      await pendingWrites.add('equipments', 'update', { id: equipment.id, status, updated_at: now })
+      await syncManager.notifyPending()
+      showToast(`Statut → ${EQ_STATUS_CONFIG[status].label} (hors ligne)`)
+      return
+    }
+
     try {
       const updated = await equipmentsApi.update(equipment.id, { status })
       if (!updated) throw new Error('Pas de retour Supabase')
-      // Mettre à jour le DataStore aussi pour persister entre navigations
-      updateEquipment(equipment.id, { status })
       auditApi.log(user.id, 'Statut equipement modifie', equipment.name, `→ ${EQ_STATUS_CONFIG[status].label}`)
       showToast(`Statut → ${EQ_STATUS_CONFIG[status].label}`)
     } catch (e: any) {
       console.error('[Plan] Erreur statut:', e)
-      // Rollback
-      setLocalEq(prev => (prev.length > 0 ? prev : equipments).map(e => e.id === equipment.id ? { ...e, status: equipment.status } : e))
-      setSelected(prev => prev ? { ...prev, status: equipment.status } : prev)
-      showToast('Erreur — ' + (e.message || 'statut non sauvegardé'))
+      // Sauvegarder offline en cas d'erreur réseau
+      await pendingWrites.add('equipments', 'update', { id: equipment.id, status, updated_at: now })
+      await syncManager.notifyPending()
+      showToast(`Statut sauvegardé hors ligne`)
     }
   }
 

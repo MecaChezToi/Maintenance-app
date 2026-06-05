@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/components/layout/AuthProvider'
 import AppLayout from '@/components/layout/AppLayout'
 import { interventionsApi, auditApi, photosApi, partsApi } from '@/lib/supabase'
+import { offlineInterventionsApi } from '@/lib/offlineApi'
+import { networkStatus } from '@/lib/offlineDb'
 import { useData } from '@/lib/DataStore'
 import type { Intervention, Equipment, Profile, Part, SiteConfig } from '@/types'
 import { STATUS_CONFIG, PRIORITY_CONFIG } from '@/types'
@@ -389,19 +391,20 @@ export default function InterventionsPage() {
   const updateStatus = async (interv: Intervention, status: 'a_faire'|'en_cours'|'termine'|'valide') => {
     updateIntervention(interv.id, { status })
     setSelected(prev => prev?.id === interv.id ? { ...prev, status } : prev)
-    interventionsApi.updateStatus(interv.id, status)
+    await offlineInterventionsApi.updateStatus(interv.id, status)
     auditApi.log(user.id, 'Statut modifié', interv.title, `→ ${STATUS_CONFIG[status].label}`)
   }
 
   const createIntervention = async (payload: any) => {
     setError(null)
     try {
-      const created = await interventionsApi.create({
+      const created = await offlineInterventionsApi.create({
         ...payload,
         organization_id: user.organization_id,
       })
       if (created) addIntervention(created)
-      showToast('Intervention créée')
+      const isOffline = !networkStatus.isOnline()
+      showToast(isOffline ? 'Intervention sauvegardée hors ligne' : 'Intervention créée')
       setShowNew(false)
     } catch (e: any) {
       setError(e.message || "Impossible de créer l'intervention.")
