@@ -19,6 +19,14 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 })
 
+// Nettoyer tous les tokens Supabase
+const clearAllTokens = () => {
+  try {
+    Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
+    sessionStorage.clear()
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null)
   const [organization, setOrganization] = useState<Organization | null>(null)
