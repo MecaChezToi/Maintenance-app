@@ -1047,19 +1047,20 @@ Cette action est irréversible.`)) return
 
   const handleStatusChange = async (equipment: Equipment, status: EqStatus) => {
     if (!canManage) return
-    // Mise à jour optimiste locale
+    // Mise à jour optimiste locale immédiate
     setLocalEq(prev => (prev.length > 0 ? prev : equipments).map(e => e.id === equipment.id ? { ...e, status } : e))
     setSelected(prev => prev ? { ...prev, status } : prev)
-    // Attendre la confirmation Supabase
     try {
-      await equipmentsApi.update(equipment.id, { status })
+      const updated = await equipmentsApi.update(equipment.id, { status })
+      if (!updated) throw new Error('Pas de retour Supabase')
       auditApi.log(user.id, 'Statut equipement modifie', equipment.name, `→ ${EQ_STATUS_CONFIG[status].label}`)
-    } catch (e) {
-      // Rollback si échec
-      console.error('[Plan] Erreur mise à jour statut:', e)
+      showToast(`Statut → ${EQ_STATUS_CONFIG[status].label}`)
+    } catch (e: any) {
+      console.error('[Plan] Erreur statut:', e)
+      // Rollback
       setLocalEq(prev => (prev.length > 0 ? prev : equipments).map(e => e.id === equipment.id ? { ...e, status: equipment.status } : e))
       setSelected(prev => prev ? { ...prev, status: equipment.status } : prev)
-      showToast('Erreur — statut non sauvegardé')
+      showToast('Erreur — ' + (e.message || 'statut non sauvegardé'))
     }
   }
 
