@@ -43,8 +43,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const handleSignOut = async () => {
-    await signOut()
-    router.replace('/auth')
+    try {
+      await signOut()
+    } catch {}
+    // Nettoyage forcé peu importe ce qui se passe
+    try {
+      Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
+      sessionStorage.clear()
+    } catch {}
+    window.location.href = '/auth'
   }
 
   useEffect(() => {
