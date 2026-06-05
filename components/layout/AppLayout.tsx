@@ -42,21 +42,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-    } catch {}
-    // Nettoyage forcé peu importe ce qui se passe
-    try {
-      Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
-      sessionStorage.clear()
-    } catch {}
+  const handleSignOut = () => {
+    // Nettoyage immédiat sans attendre Supabase
+    Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
+    sessionStorage.clear()
     window.location.href = '/auth'
   }
 
   useEffect(() => {
     if (!loading && !user) router.replace('/auth')
   }, [user, loading, router])
+
+  useEffect(() => {
+    // Intercepter ?logout=1 dans l'URL
+    if (typeof window !== 'undefined' && window.location.search.includes('logout=1')) {
+      Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
+      sessionStorage.clear()
+      window.location.href = '/auth'
+    }
+  }, [])
 
   if (loading) return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080909' }}>
@@ -140,6 +144,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <button onClick={handleSignOut} title="Déconnexion" style={{
             background: 'transparent', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4,
             color: '#7a8599', cursor: 'pointer', padding: '4px 6px', fontSize: 12,
+            position: 'relative', zIndex: 999, pointerEvents: 'all',
           }}>⇥</button>
         </div>
       </aside>
@@ -164,6 +169,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <button onClick={handleSignOut} className="hide-mobile" style={{
               background: 'transparent', border: '1px solid rgba(255,255,255,.08)',
               borderRadius: 4, color: '#7a8599', cursor: 'pointer', padding: '5px 8px', fontSize: 12,
+              position: 'relative', zIndex: 999, pointerEvents: 'all',
             }}>Déconnexion</button>
           </div>
         </div>
