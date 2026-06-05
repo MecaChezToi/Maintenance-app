@@ -40,9 +40,12 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth()
-  const handleSignOut = async () => { await signOut(); router.replace("/auth") }
   const router = useRouter()
   const pathname = usePathname()
+  const handleSignOut = async () => {
+    await signOut()
+    router.replace('/auth')
+  }
 
   useEffect(() => {
     if (!loading && !user) router.replace('/auth')
