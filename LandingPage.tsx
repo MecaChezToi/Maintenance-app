@@ -233,7 +233,7 @@ export default function LandingPage() {
         <nav className="lp-nav">
           <div className="lp-nav-inner">
             <a href="/" className="lp-logo">
-              <img src="/logo.png" alt="MaintaFood" style={{ height: 48, objectFit: 'contain' }} />
+              <img src="/logo.png" alt="MaintaFood" style={{ height: 120, objectFit: 'contain' }} />
             </a>
             <div className="lp-nav-links">
               <a href="#features">Fonctionnalités</a>

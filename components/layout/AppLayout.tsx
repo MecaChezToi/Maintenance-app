@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/layout/AuthProvider'
+import { MaintaFoodLogo } from '@/components/MaintaFoodLogo'
 import { ROLE_CONFIG } from '@/types'
 
 const NAV_ITEMS = [
@@ -66,8 +67,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (loading) return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080909' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-        <img src="/logo.png" alt="MaintaFood" style={{ height: 80, objectFit: 'contain' }} />
-        <div style={{ color: '#00d0d8', fontSize: 12, fontFamily: 'var(--font-mono)', opacity: .6 }}>Chargement…</div>
+        <MaintaFoodLogo size="lg" />
+        <div style={{ color: '#00c896', fontSize: 12, fontFamily: 'var(--font-mono)', opacity: .6 }}>Chargement…</div>
       </div>
     </div>
   )
@@ -100,7 +101,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }} className="hide-mobile">
         {/* Logo */}
         <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
-          <img src="/logo.png" alt="MaintaFood" style={{ height: 56, objectFit: 'contain', objectPosition: 'left' }} />
+          <MaintaFoodLogo size="md" />
           <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: '#3a4055', marginTop: 5, textTransform: 'uppercase', letterSpacing: '.6px' }}>
             GMAO Platform
           </div>
