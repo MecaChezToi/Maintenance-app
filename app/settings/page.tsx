@@ -61,9 +61,9 @@ export default function SettingsPage() {
                 <label className="form-label">Certifications</label>
                 <input className="form-input" value={config.certifications || ''} onChange={e => s('certifications', e.target.value)} placeholder="ex: IFS Food v8 · BRC · ISO 22000" />
               </div>
-              {saved && <div style={{ padding: '8px 12px', background: 'rgba(0,200,150,.08)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 6, fontSize: 13, color: '#00c896' }}>✅ Sauvegardé !</div>}
+              {saved && <div style={{ padding: '8px 12px', background: 'rgba(0,208,216,.08)', border: '1px solid rgba(0,208,216,.2)', borderRadius: 6, fontSize: 13, color: '#00d0d8' }}>✅ Sauvegardé !</div>}
               {error && <div style={{ padding: '8px 12px', background: 'rgba(255,71,87,.08)', border: '1px solid rgba(255,71,87,.25)', borderRadius: 6, fontSize: 13, color: '#ff4757' }}>{error}</div>}
-              <button onClick={save} disabled={saving} style={{ background: '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-outfit)' }}>
+              <button onClick={save} disabled={saving} style={{ background: '#00d0d8', color: '#000', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-outfit)' }}>
                 {saving ? 'Sauvegarde...' : '✓ Sauvegarder'}
               </button>
             </> : <div style={{ color: 'var(--t2)', fontSize: 13 }}>Chargement…</div>}
@@ -83,7 +83,7 @@ export default function SettingsPage() {
                 'Conformité RGPD applicable',
               ].map(item => (
                 <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                  <span style={{ color: '#00c896', flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: '#00d0d8', flexShrink: 0, marginTop: 1 }}>✓</span>
                   <span style={{ fontSize: 13, color: 'var(--t2)' }}>{item}</span>
                 </div>
               ))}
@@ -98,14 +98,14 @@ export default function SettingsPage() {
               </div>
               <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,.03)', borderRadius: 8, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--t3)', lineHeight: 1.8 }}>
                 URL de déploiement :<br/>
-                <span style={{ color: '#00c896' }}>https://votre-app.vercel.app</span>
+                <span style={{ color: '#00d0d8' }}>https://votre-app.vercel.app</span>
               </div>
             </div>
           </div>
 
-          <div className="card" style={{ border: '1px solid rgba(0,200,150,.15)', background: 'rgba(0,200,150,.03)' }}>
+          <div className="card" style={{ border: '1px solid rgba(0,208,216,.15)', background: 'rgba(0,208,216,.03)' }}>
             <div style={{ padding: 18 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#00c896', marginBottom: 8 }}>Version</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#00d0d8', marginBottom: 8 }}>Version</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {[['FixOps GMAO','v1.0.0'],['Next.js','14.x'],['Supabase','2.x'],['Base de données','PostgreSQL 15']].map(([k,v]) => (
                   <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>

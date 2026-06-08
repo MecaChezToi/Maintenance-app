@@ -25,7 +25,7 @@ const addDays = (days: number) => {
 
 const ZONE_CONFIG: Record<ZoneKey, { label: string; desc: string; color: string; x: number; y: number; w: number; h: number }> = {
   A: { label: 'Lignes 1R', desc: 'Emballage & conditionnement', color: '#e8643c', x: 4,  y: 58, w: 24, h: 30 },
-  B: { label: 'Atelier 2R-3R', desc: 'SIG · Hacos · Stockage',   color: '#00c896', x: 4,  y: 30, w: 46, h: 26 },
+  B: { label: 'Atelier 2R-3R', desc: 'SIG · Hacos · Stockage',   color: '#00d0d8', x: 4,  y: 30, w: 46, h: 26 },
   C: { label: 'Production 3R-4R', desc: 'Stim · Écomec · Sapal', color: '#a855f7', x: 4,  y: 6,  w: 52, h: 22 },
   D: { label: 'Lignes 4R droite', desc: 'Bosch · Sapal · Frigo', color: '#f59e0b', x: 58, y: 6,  w: 36, h: 52 },
 }
@@ -108,7 +108,7 @@ function QRCodeDisplay({ equipment }: { equipment: Equipment }) {
         <div style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all', maxWidth: 260 }}>{url}</div>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={downloadQR} style={{ padding: '8px 16px', background: 'rgba(0,200,150,.15)', border: '1px solid rgba(0,200,150,.3)', borderRadius: 8, color: '#00c896', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={downloadQR} style={{ padding: '8px 16px', background: 'rgba(0,208,216,.15)', border: '1px solid rgba(0,208,216,.3)', borderRadius: 8, color: '#00d0d8', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
           ⬇ Télécharger
         </button>
         <button onClick={printQR} style={{ padding: '8px 16px', background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, color: 'var(--t1)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
@@ -282,7 +282,7 @@ function EquipmentDetailModal({
                 {statusCfg.label}
               </span>
               {equipment.category && <span className="badge" style={{ background: 'var(--s4)', color: 'var(--t2)' }}>{equipment.category}</span>}
-              {equipment.food_safe && <span className="badge" style={{ background: 'rgba(0,200,150,.12)', color: 'var(--acc)' }}>Zone alimentaire</span>}
+              {equipment.food_safe && <span className="badge" style={{ background: 'rgba(0,208,216,.12)', color: 'var(--acc)' }}>Zone alimentaire</span>}
             </div>
 
             {canManage && (
@@ -983,7 +983,7 @@ function EditMachineModal({ equipment, onClose, onSave }: { equipment: Equipment
             </div>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input type="checkbox" checked={form.food_safe} onChange={e => s('food_safe', e.target.checked)} style={{ accentColor: '#00c896', width: 15, height: 15 }} />
+            <input type="checkbox" checked={form.food_safe} onChange={e => s('food_safe', e.target.checked)} style={{ accentColor: '#00d0d8', width: 15, height: 15 }} />
             <span style={{ fontSize: 13 }}>Zone alimentaire</span>
           </label>
         </div>
@@ -1236,8 +1236,8 @@ Cette action est irréversible.`)) return
         <div style={{ padding: 16 }}>
           {/* Toggle plan photo / plan schématique */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            <button onClick={() => setPlanMode('schema')} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: planMode === 'schema' ? 'rgba(0,200,150,.15)' : 'transparent', color: planMode === 'schema' ? '#00c896' : 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>Schématique</button>
-            <button onClick={() => setPlanMode('photo')} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: planMode === 'photo' ? 'rgba(0,200,150,.15)' : 'transparent', color: planMode === 'photo' ? '#00c896' : 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>Plan réel</button>
+            <button onClick={() => setPlanMode('schema')} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: planMode === 'schema' ? 'rgba(0,208,216,.15)' : 'transparent', color: planMode === 'schema' ? '#00d0d8' : 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>Schématique</button>
+            <button onClick={() => setPlanMode('photo')} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,.1)', background: planMode === 'photo' ? 'rgba(0,208,216,.15)' : 'transparent', color: planMode === 'photo' ? '#00d0d8' : 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>Plan réel</button>
           </div>
 
           <div style={{ position: 'relative', width: '100%', borderRadius: 10, overflow: 'hidden', background: '#080909' }}>
@@ -1293,7 +1293,7 @@ Cette action est irréversible.`)) return
                   {/* Pastille statut */}
                   <circle cx={x + w - 1.4} cy={y + 1.4} r="1.1" fill={statusCfg.color} />
                   {/* Badge alimentaire */}
-                  {eq.food_safe && <text x={x + 1} y={y + 2.8} fill="rgba(0,200,150,.85)" fontSize="1.7" fontFamily="JetBrains Mono">✓</text>}
+                  {eq.food_safe && <text x={x + 1} y={y + 2.8} fill="rgba(0,208,216,.85)" fontSize="1.7" fontFamily="JetBrains Mono">✓</text>}
                   {/* Nom machine */}
                   <text
                     x={x + w / 2 + 1}
@@ -1347,7 +1347,7 @@ Cette action est irréversible.`)) return
                       <div style={{ padding: 14 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                           <span className="badge" style={{ background: `${statusCfg.color}18`, color: statusCfg.color }}>{statusCfg.label}</span>
-                          {eq.food_safe && <span className="badge" style={{ background: 'rgba(0,200,150,.12)', color: 'var(--acc)' }}>Alim.</span>}
+                          {eq.food_safe && <span className="badge" style={{ background: 'rgba(0,208,216,.12)', color: 'var(--acc)' }}>Alim.</span>}
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{eq.name}</div>
                         <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 4 }}>{eq.location || 'Localisation non renseignee'}</div>

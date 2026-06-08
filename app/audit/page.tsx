@@ -56,7 +56,7 @@ export default function AuditPage() {
   })
 
   const actionColor = (action: string) => {
-    if (action.includes('Rapport') || action.includes('signé')) return '#00c896'
+    if (action.includes('Rapport') || action.includes('signé')) return '#00d0d8'
     if (action.includes('stock') || action.includes('Stock')) return '#ffa502'
     if (action.includes('créée') || action.includes('Création')) return '#3c82e8'
     if (action.includes('Connexion')) return '#a855f7'
@@ -85,7 +85,7 @@ export default function AuditPage() {
       <div className="page-title">Journal d'audit</div>
       <div className="page-sub">Traçabilité complète — conforme IFS Food v8 · BRC · ISO 22000</div>
 
-      <div style={{ padding: '10px 14px', background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 8, fontSize: 12.5, color: '#00c896', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+      <div style={{ padding: '10px 14px', background: 'rgba(0,208,216,.06)', border: '1px solid rgba(0,208,216,.2)', borderRadius: 8, fontSize: 12.5, color: '#00d0d8', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
         🛡️ Ce journal est horodaté et non modifiable — disponible pour inspection par les auditeurs qualité.
       </div>
 

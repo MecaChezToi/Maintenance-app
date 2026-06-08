@@ -99,7 +99,7 @@ export default function UsersPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 2 }}>
                     {p.name}
-                    {user?.id === p.id && <span style={{ fontSize: 10, color: '#00c896', fontFamily: 'var(--font-mono)', marginLeft: 8 }}>● vous</span>}
+                    {user?.id === p.id && <span style={{ fontSize: 10, color: '#00d0d8', fontFamily: 'var(--font-mono)', marginLeft: 8 }}>● vous</span>}
                   </div>
                   <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--t2)', marginBottom: 8 }}>{p.id.slice(0,8).toUpperCase()}</div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

@@ -242,7 +242,7 @@ function AdjustModal({ part, canEdit, onClose, onConfirm }: {
   const low = newQty <= part.min_qty
 
   const TYPES_ADMIN = [
-    ['add', '📦 Réception', '#00c896'],
+    ['add', '📦 Réception', '#00d0d8'],
     ['remove', '📤 Retrait', '#ff4757'],
     ['order', '🔄 Inventaire', '#ffa502'],
   ]
@@ -260,7 +260,7 @@ function AdjustModal({ part, canEdit, onClose, onConfirm }: {
         <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
 
           {!canEdit && (
-            <div style={{ padding: '10px 14px', background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 8, fontSize: 12.5, color: 'var(--acc)' }}>
+            <div style={{ padding: '10px 14px', background: 'rgba(0,208,216,.06)', border: '1px solid rgba(0,208,216,.2)', borderRadius: 8, fontSize: 12.5, color: 'var(--acc)' }}>
               🔧 Déclarez les pièces prélevées pour votre intervention. Le stock sera mis à jour automatiquement.
             </div>
           )}
@@ -324,7 +324,7 @@ function AdjustModal({ part, canEdit, onClose, onConfirm }: {
 
           {/* Résultat */}
           {qty > 0 && (
-            <div style={{ background: 'rgba(0,200,150,.06)', border: `1px solid ${low ? 'rgba(255,71,87,.3)' : 'rgba(0,200,150,.2)'}`, borderRadius: 8, padding: '12px 14px', fontSize: 12.5 }}>
+            <div style={{ background: 'rgba(0,208,216,.06)', border: `1px solid ${low ? 'rgba(255,71,87,.3)' : 'rgba(0,208,216,.2)'}`, borderRadius: 8, padding: '12px 14px', fontSize: 12.5 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--t2)' }}>Stock après {canEdit ? 'mouvement' : 'prélèvement'}</span>
                 <strong style={{ color: low ? 'var(--red)' : 'var(--acc)', fontFamily: 'var(--font-mono)', fontSize: 16 }}>{newQty} {part.unit}</strong>
@@ -534,8 +534,8 @@ export default function StorePage() {
   const chipStyle = (active: boolean): React.CSSProperties => ({
     padding: '5px 11px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
     fontFamily: 'var(--font-outfit)', transition: 'all .12s', whiteSpace: 'nowrap',
-    border: `1px solid ${active ? 'rgba(0,200,150,.35)' : 'rgba(255,255,255,.08)'}`,
-    background: active ? 'rgba(0,200,150,.1)' : 'transparent',
+    border: `1px solid ${active ? 'rgba(0,208,216,.35)' : 'rgba(255,255,255,.08)'}`,
+    background: active ? 'rgba(0,208,216,.1)' : 'transparent',
     color: active ? 'var(--acc)' : 'var(--t2)',
   })
 
@@ -564,7 +564,7 @@ export default function StorePage() {
         </div>
       )}
       {!canEdit && (
-        <div className="alert-bar" style={{ background: 'rgba(0,200,150,.05)', border: '1px solid rgba(0,200,150,.15)', color: 'var(--acc)' }}>
+        <div className="alert-bar" style={{ background: 'rgba(0,208,216,.05)', border: '1px solid rgba(0,208,216,.15)', color: 'var(--acc)' }}>
           🔒 Vue technicien · Cliquez sur une pièce pour voir son emplacement et déclarer une consommation
         </div>
       )}
@@ -640,7 +640,7 @@ export default function StorePage() {
                     return (
                       <tr key={p.id}
                         onClick={() => setSelected(sel ? null : p)}
-                        style={{ background: sel ? 'rgba(0,200,150,.04)' : low ? 'rgba(255,71,87,.02)' : undefined }}>
+                        style={{ background: sel ? 'rgba(0,208,216,.04)' : low ? 'rgba(255,71,87,.02)' : undefined }}>
                         <td><LocBadge loc={p.location || undefined} /></td>
                         <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--acc)' }}>{p.ref}</span></td>
                         <td>
@@ -689,7 +689,7 @@ export default function StorePage() {
             <div style={{ padding: '0 18px' }}>
               {moves.slice(0, 12).map((m, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--b0)', fontSize: 12 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 500, flexShrink: 0, minWidth: 36, textAlign: 'center', background: m.qty < 0 ? 'rgba(255,71,87,.12)' : 'rgba(0,200,150,.12)', color: m.qty < 0 ? 'var(--red)' : 'var(--acc)' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 500, flexShrink: 0, minWidth: 36, textAlign: 'center', background: m.qty < 0 ? 'rgba(255,71,87,.12)' : 'rgba(0,208,216,.12)', color: m.qty < 0 ? 'var(--red)' : 'var(--acc)' }}>
                     {m.qty > 0 ? '+' : ''}{m.qty}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>

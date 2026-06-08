@@ -69,7 +69,7 @@ function DoneModal({ item, user, onClose, onSave }: {
             <label className="form-label">Notes / Observations</label>
             <textarea className="form-input" placeholder="Anomalies constatées, pièces remplacées..." value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} style={{ minHeight: 80 }} />
           </div>
-          <div style={{ padding: '10px 14px', background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 8, fontSize: 12, color: '#00c896' }}>
+          <div style={{ padding: '10px 14px', background: 'rgba(0,208,216,.06)', border: '1px solid rgba(0,208,216,.2)', borderRadius: 8, fontSize: 12, color: '#00d0d8' }}>
             ✓ Un enregistrement sera créé dans l'audit automatiquement
           </div>
         </div>

@@ -18,7 +18,7 @@ const openPdf = (interv: Intervention, cfg: SiteConfig | null) => {
   const techName = (interv.technician as any)?.name || '—'
   const creatorName = (interv.creator as any)?.name || '—'
   const html = `<html><head><meta charset="utf-8" /><title>Rapport ${interv.id}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Outfit',sans-serif;background:#fff;color:#111}.wrap{padding:36px}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:3px solid #00c896}.logo{font-size:20px;font-weight:800;color:#00c896}.mut{font-size:10px;color:#777}.sec{margin-bottom:18px}.st{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #eee}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.f{background:#f8f9fa;border-radius:8px;padding:11px}.fl{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}.fv{font-size:13px;font-weight:700;color:#111}.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700}.b-ok{background:rgba(0,200,150,.12);color:#00c896}.b-w{background:rgba(255,165,2,.12);color:#ffa502}.b-r{background:rgba(255,71,87,.12);color:#ff4757}.txt{white-space:pre-wrap;line-height:1.6;font-size:13px;color:#222}.sign{border:1px solid #ddd;border-radius:10px;padding:16px;text-align:center}.sign .nm{font-size:18px;font-weight:800;color:#00c896;margin:8px 0}@media print{@page{margin:12mm}}</style></head><body>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Outfit',sans-serif;background:#fff;color:#111}.wrap{padding:36px}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:3px solid #00d0d8}.logo{font-size:20px;font-weight:800;color:#00d0d8}.mut{font-size:10px;color:#777}.sec{margin-bottom:18px}.st{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #eee}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.f{background:#f8f9fa;border-radius:8px;padding:11px}.fl{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}.fv{font-size:13px;font-weight:700;color:#111}.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700}.b-ok{background:rgba(0,208,216,.12);color:#00d0d8}.b-w{background:rgba(255,165,2,.12);color:#ffa502}.b-r{background:rgba(255,71,87,.12);color:#ff4757}.txt{white-space:pre-wrap;line-height:1.6;font-size:13px;color:#222}.sign{border:1px solid #ddd;border-radius:10px;padding:16px;text-align:center}.sign .nm{font-size:18px;font-weight:800;color:#00d0d8;margin:8px 0}@media print{@page{margin:12mm}}</style></head><body>
   <div class="wrap">
     <div class="hdr"><div><div class="logo">MaintaFood</div><div class="mut">RAPPORT D'INTERVENTION — GMAO</div></div>
     <div style="text-align:right;font-size:11px;color:#666;line-height:1.6"><div style="font-weight:800;font-size:12px;color:#111">${cfg?.name || ''}</div><div>${cfg?.certifications || ''}</div></div></div>
@@ -122,10 +122,10 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
         <div style={styles.stepRow}>
           {steps.map((st, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: i < steps.length - 1 ? 1 : 'none' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', flexShrink: 0, background: i < step ? '#00c896' : i === step ? 'rgba(0,200,150,.12)' : 'rgba(255,255,255,.04)', border: `2px solid ${i <= step ? '#00c896' : 'rgba(255,255,255,.08)'}`, color: i < step ? '#000' : i === step ? '#00c896' : 'var(--t2)' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', flexShrink: 0, background: i < step ? '#00d0d8' : i === step ? 'rgba(0,208,216,.12)' : 'rgba(255,255,255,.04)', border: `2px solid ${i <= step ? '#00d0d8' : 'rgba(255,255,255,.08)'}`, color: i < step ? '#000' : i === step ? '#00d0d8' : 'var(--t2)' }}>
                 {i < step ? '✓' : i + 1}
               </div>
-              {i < steps.length - 1 && <div style={{ flex: 1, height: 1, background: i < step ? '#00c896' : 'rgba(255,255,255,.08)' }} />}
+              {i < steps.length - 1 && <div style={{ flex: 1, height: 1, background: i < step ? '#00d0d8' : 'rgba(255,255,255,.08)' }} />}
             </div>
           ))}
         </div>
@@ -143,7 +143,7 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <label className="form-label">Impact</label>
                 <label style={styles.checkRow}>
-                  <input type="checkbox" checked={form.productionStopped} onChange={e => s('productionStopped', e.target.checked)} style={{ accentColor: '#00c896' }} />
+                  <input type="checkbox" checked={form.productionStopped} onChange={e => s('productionStopped', e.target.checked)} style={{ accentColor: '#00d0d8' }} />
                   <span style={{ fontSize: 13 }}>Production arrêtée</span>
                 </label>
               </div>
@@ -152,7 +152,7 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
               <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)', marginBottom: 8 }}>Photos ({existingPhotos.length + form.photos.length})</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
                 {existingPhotos.map((photo: any) => (
-                  <div key={photo.id} style={{ aspectRatio: '1', background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.15)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#00c896', gap: 4, position: 'relative' }}>
+                  <div key={photo.id} style={{ aspectRatio: '1', background: 'rgba(0,208,216,.06)', border: '1px solid rgba(0,208,216,.15)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#00d0d8', gap: 4, position: 'relative' }}>
                     📷<span>{photo.filename?.slice(0,8) || 'photo'}</span>
                     <button onClick={() => removeExistingPhoto(photo.id)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(255,71,87,.8)', border: 'none', borderRadius: '50%', width: 18, height: 18, color: '#fff', cursor: 'pointer', fontSize: 10 }}>×</button>
                   </div>
@@ -181,13 +181,13 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
             </div>
           </>}
           {step === 2 && <>
-            <div style={{ ...styles.section, background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)' }}>
-              <div style={{ color: '#00c896', fontWeight: 600, fontSize: 13 }}>🛡️ Vérifications obligatoires IFS/BRC</div>
+            <div style={{ ...styles.section, background: 'rgba(0,208,216,.06)', border: '1px solid rgba(0,208,216,.2)' }}>
+              <div style={{ color: '#00d0d8', fontWeight: 600, fontSize: 13 }}>🛡️ Vérifications obligatoires IFS/BRC</div>
             </div>
             <div style={styles.section}>
               {[['hygiene','Hygiène personnelle respectée'],['cleaning','Nettoyage post-intervention effectué'],['foodImpact','Risque de contamination alimentaire ⚠️']].map(([key, label]) => (
                 <label key={key} style={styles.checkRow}>
-                  <input type="checkbox" checked={(form as any)[key]} onChange={e => s(key, e.target.checked)} style={{ accentColor: '#00c896', width: 16, height: 16 }} />
+                  <input type="checkbox" checked={(form as any)[key]} onChange={e => s(key, e.target.checked)} style={{ accentColor: '#00d0d8', width: 16, height: 16 }} />
                   <span style={{ fontSize: 13 }}>{label}</span>
                 </label>
               ))}
@@ -224,7 +224,7 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
             <div style={styles.section}>
               <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--t2)', marginBottom: 10 }}>Verdict *</div>
               <div style={{ display: 'flex', gap: 8 }}>
-                {[['conforme','✅ Conforme','#00c896'],['non_conforme','❌ Non conforme','#ff4757'],['a_surveiller','⚠️ À surveiller','#ffa502']].map(([v,l,c]) => (
+                {[['conforme','✅ Conforme','#00d0d8'],['non_conforme','❌ Non conforme','#ff4757'],['a_surveiller','⚠️ À surveiller','#ffa502']].map(([v,l,c]) => (
                   <button key={v} onClick={() => s('verdict', v)} style={{ flex: 1, padding: '12px 8px', borderRadius: 8, border: `1px solid ${form.verdict === v ? c : 'rgba(255,255,255,.08)'}`, background: form.verdict === v ? c+'18' : 'transparent', color: form.verdict === v ? c : 'var(--t2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{l}</button>
                 ))}
               </div>
@@ -241,7 +241,7 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
           {step === 5 && <>
             <div style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, padding: 20, textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: 'var(--t2)', marginBottom: 8 }}>Rapport certifié par</div>
-              <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#00c896', margin: '8px 0' }}>{user.name}</div>
+              <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#00d0d8', margin: '8px 0' }}>{user.name}</div>
               <div style={{ fontSize: 12, color: 'var(--t2)', fontFamily: 'var(--font-mono)' }}>{fmtDT(new Date().toISOString())}</div>
               <div style={{ marginTop: 14, padding: 12, background: 'rgba(255,255,255,.03)', borderRadius: 8, fontSize: 12, color: 'var(--t2)', lineHeight: 1.6 }}>
                 Je certifie que les informations sont exactes et que les procédures ont été respectées.
@@ -258,8 +258,8 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
           {step > 0 && <button onClick={() => setStep(s => s - 1)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.08)', borderRadius: 6, padding: '8px 14px', color: 'var(--t2)', cursor: 'pointer' }}>← Retour</button>}
           <div style={{ flex: 1 }} />
           {step < steps.length - 1
-            ? <button onClick={() => setStep(s => s + 1)} style={{ background: '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Suivant →</button>
-            : <button onClick={submit} disabled={!form.verdict || !form.actions || saving} style={{ background: (!form.verdict || !form.actions) ? 'rgba(255,255,255,.1)' : '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
+            ? <button onClick={() => setStep(s => s + 1)} style={{ background: '#00d0d8', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Suivant →</button>
+            : <button onClick={submit} disabled={!form.verdict || !form.actions || saving} style={{ background: (!form.verdict || !form.actions) ? 'rgba(255,255,255,.1)' : '#00d0d8', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
                 {saving ? 'Enregistrement...' : '✓ Signer et clôturer'}
               </button>}
         </div>
@@ -344,17 +344,17 @@ function NewIntModal({ equipments, technicians, user, onClose, onSave, error, on
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[['production_stopped','Production arrêtée'],['food_impact','Risque alimentaire']].map(([k,l]) => (
               <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,.03)', borderRadius: 6, cursor: 'pointer' }}>
-                <input type="checkbox" checked={(form as any)[k]} onChange={e => s(k, e.target.checked)} style={{ accentColor: '#00c896', width: 15, height: 15 }} />
+                <input type="checkbox" checked={(form as any)[k]} onChange={e => s(k, e.target.checked)} style={{ accentColor: '#00d0d8', width: 15, height: 15 }} />
                 <span style={{ fontSize: 13 }}>{l}</span>
               </label>
             ))}
           </div>
-          {eq?.food_safe && <div style={{ padding: '8px 12px', background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 6, fontSize: 12, color: '#00c896' }}>🛡️ Zone alimentaire — rapport hygiène obligatoire</div>}
+          {eq?.food_safe && <div style={{ padding: '8px 12px', background: 'rgba(0,208,216,.06)', border: '1px solid rgba(0,208,216,.2)', borderRadius: 6, fontSize: 12, color: '#00d0d8' }}>🛡️ Zone alimentaire — rapport hygiène obligatoire</div>}
           {error && <div style={{ padding: '10px 12px', background: 'rgba(255,71,87,.08)', border: '1px solid rgba(255,71,87,.25)', borderRadius: 8, fontSize: 12.5, color: '#ff4757' }}>{error}</div>}
         </div>
         <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,.04)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
           <button onClick={onClose} style={iS}>Annuler</button>
-          <button onClick={save} disabled={!form.title || !form.equipment_id || saving} style={{ background: (!form.title || !form.equipment_id) ? 'rgba(255,255,255,.1)' : '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={save} disabled={!form.title || !form.equipment_id || saving} style={{ background: (!form.title || !form.equipment_id) ? 'rgba(255,255,255,.1)' : '#00d0d8', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             {saving ? 'Création...' : '✓ Créer'}
           </button>
         </div>
@@ -453,7 +453,7 @@ export default function InterventionsPage() {
         {[['all','Tous',list.length], ...(Object.entries(STATUS_CONFIG) as any[]).map(([k,v]) => [k, v.label, list.filter((i: Intervention) => i.status === k).length])].map(([k,l,c]) => {
           const sc = k !== 'all' ? STATUS_CONFIG[k as keyof typeof STATUS_CONFIG] : null
           return (
-            <button key={k} onClick={() => setFilter(k)} className="btn btn-ghost btn-sm" style={filter === k ? { borderColor: sc?.color || '#00c896', color: sc?.color || '#00c896', background: sc?.bg || 'rgba(0,200,150,.12)' } : {}}>
+            <button key={k} onClick={() => setFilter(k)} className="btn btn-ghost btn-sm" style={filter === k ? { borderColor: sc?.color || '#00d0d8', color: sc?.color || '#00d0d8', background: sc?.bg || 'rgba(0,208,216,.12)' } : {}}>
               {l} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, opacity: .7 }}>{c}</span>
             </button>
           )
@@ -499,12 +499,12 @@ export default function InterventionsPage() {
                   <td>
                     <div style={{ fontWeight: 600, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.title}</div>
                     {i.production_stopped && <div style={{ fontSize: 10, color: '#ff4757' }}>⚠️ Prod. arrêtée</div>}
-                    {i.food_impact && <div style={{ fontSize: 10, color: '#00c896' }}>🛡️ Impact alim.</div>}
+                    {i.food_impact && <div style={{ fontSize: 10, color: '#00d0d8' }}>🛡️ Impact alim.</div>}
                   </td>
                   <td style={{ fontSize: 12, color: 'var(--t2)' }}>{eq?.name || '—'}</td>
                   <td><span style={{ fontSize: 12, color: pc.color, fontWeight: 600 }}>{pc.label}</span></td>
                   <td><span className="badge" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span></td>
-                  <td>{i.report_verdict ? <span style={{ color: '#00c896', fontSize: 12 }}>✅ Signé</span> : <span style={{ color: 'var(--t3)', fontSize: 12 }}>En attente</span>}</td>
+                  <td>{i.report_verdict ? <span style={{ color: '#00d0d8', fontSize: 12 }}>✅ Signé</span> : <span style={{ color: 'var(--t3)', fontSize: 12 }}>En attente</span>}</td>
                   <td style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--t2)' }}>{fmt(i.created_at)}</td>
                 </tr>
               )
@@ -538,18 +538,18 @@ export default function InterventionsPage() {
               </div>
               {selected.description && <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,.03)', borderRadius: 8, fontSize: 13, color: 'var(--t2)', lineHeight: 1.6 }}>{selected.description}</div>}
               {selected.report_verdict && (
-                <div style={{ padding: 14, background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 10 }}>
-                  <div style={{ fontWeight: 600, color: '#00c896', marginBottom: 8 }}>✅ Rapport complété</div>
+                <div style={{ padding: 14, background: 'rgba(0,208,216,.06)', border: '1px solid rgba(0,208,216,.2)', borderRadius: 10 }}>
+                  <div style={{ fontWeight: 600, color: '#00d0d8', marginBottom: 8 }}>✅ Rapport complété</div>
                   <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 8 }}>{selected.report_actions}</div>
                   <div style={{ fontSize: 12, color: 'var(--t2)' }}>Verdict : <strong>{selected.report_verdict}</strong> · Durée : {selected.report_duration} min</div>
                   <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>Signé le {fmtDT(selected.signed_at || '')}</div>
-                  <button className="btn btn-ghost btn-sm" onClick={() => openPdf(selected, siteConfig)} style={{ marginTop: 10, borderColor: 'rgba(0,200,150,.25)', color: '#00c896' }}>Imprimer / PDF</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openPdf(selected, siteConfig)} style={{ marginTop: 10, borderColor: 'rgba(0,208,216,.25)', color: '#00d0d8' }}>Imprimer / PDF</button>
                 </div>
               )}
             </div>
             <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,.04)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
               {(selected.technician_id === user.id || ['admin','chef'].includes(user.role)) && selected.status !== 'valide' && !selected.report_verdict && (
-                <button onClick={() => setShowReport(true)} style={{ background: '#00c896', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>📝 Remplir le rapport</button>
+                <button onClick={() => setShowReport(true)} style={{ background: '#00d0d8', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>📝 Remplir le rapport</button>
               )}
               {['admin','chef'].includes(user.role) && (selected.status === 'termine' || selected.report_verdict) && selected.status !== 'valide' && (
                 <button onClick={() => updateStatus(selected, 'valide')} style={{ background: '#a855f7', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>⭐ Valider</button>
