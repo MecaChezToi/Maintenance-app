@@ -225,10 +225,21 @@ export const interventionsApi = {
     return data
   },
   usePart: async (interventionId: string, partId: string, qty: number): Promise<void> => {
+    // 1. Enregistrer la pièce utilisée
     const { error } = await supabase.from('intervention_parts').insert({
       intervention_id: interventionId, part_id: partId, qty_used: qty,
     })
     ensureNoError(error, 'Ajout piece utilisee')
+    // 2. Décrémenter le stock immédiatement
+    const { data: part, error: fetchError } = await supabase
+      .from('parts').select('qty').eq('id', partId).single()
+    ensureNoError(fetchError, 'Lecture stock piece')
+    if (part) {
+      const newQty = Math.max(0, (part.qty || 0) - qty)
+      const { error: stockError } = await supabase
+        .from('parts').update({ qty: newQty }).eq('id', partId)
+      ensureNoError(stockError, 'Décrémentation stock pièce')
+    }
   },
 }
 
