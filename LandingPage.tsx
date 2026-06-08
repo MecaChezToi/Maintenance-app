@@ -163,8 +163,10 @@ export default function LandingPage() {
         .lp-section-sub { color: #a1a1aa; font-size: 18px; margin-top: 16px; max-width: 560px; line-height: 1.65; }
 
         /* FEATURES */
-        .lp-features { display: grid; grid-template-columns: repeat(3,1fr); grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 1px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.07); border-radius: 20px; overflow: hidden; margin-top: 60px; }
+        .lp-features { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.07); border-radius: 20px; overflow: hidden; margin-top: 60px; }
+        @media(max-width:768px){ .lp-features { grid-template-columns: 1fr; } }
         .lp-feature { background: #111113; padding: 36px 32px; transition: background .2s; }
+        @media(max-width:768px){ .lp-feature { padding: 20px 18px; } }
         .lp-feature:hover { background: #18181b; }
         .lp-feature-icon { width: 44px; height: 44px; border-radius: 10px; background: rgba(0,208,216,.06); border: 1px solid rgba(0,208,216,.2); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 20px; }
         .lp-feature-title { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 10px; }
