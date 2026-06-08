@@ -378,7 +378,7 @@ export default function LandingPage() {
               <h2 className="lp-section-title">Transparent, sans surprise</h2>
               <p className="lp-section-sub" style={{margin:'16px auto 0',textAlign:'center'}}>Pas de frais cachés. Résiliable à tout moment.</p>
             </div>
-            <div className="lp-pricing-grid lp-reveal" style={{gridTemplateColumns:'repeat(3,1fr)',gap:24}}>
+            <div className="lp-pricing-grid lp-reveal" style={{gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:24}}>
               {/* Starter */}
               <div className="lp-price-card">
                 <div className="lp-price-name">Starter</div>
