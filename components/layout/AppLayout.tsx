@@ -88,7 +88,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   )
 
   const visibleNav = NAV_ITEMS.filter(item => item.roles.includes(user.role))
-  const mobileNav = visibleNav.slice(0, 5)
+  const mobileNav = visibleNav
 
   return (
     <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden', fontFamily: 'var(--font-outfit)' }}>
@@ -187,30 +187,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         background: '#0f1012', borderTop: '1px solid rgba(255,255,255,.08)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }} className="show-mobile">
-        <div style={{ display: 'flex', minHeight: 64 }}>
+        <div style={{ display: 'flex', overflowX: 'auto', minHeight: 60, scrollbarWidth: 'none' }}>
           {mobileNav.map(item => {
             const isActive = pathname.startsWith(item.href)
+            const shortLabels: Record<string, string> = {
+              'Dashboard': 'Dash', 'Plan du site': 'Plan', 'Interventions': 'OT',
+              'Préventif': 'Préventif', 'Magasin': 'Stock', 'Audit': 'Audit',
+              'Utilisateurs': 'Users', 'Paramètres': 'Config',
+            }
             return (
               <Link key={item.href} href={item.href} style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                gap: 4, padding: '10px 6px', textDecoration: 'none',
-                color: isActive ? '#00d0d8' : '#7a8599', fontSize: 10,
+                flexShrink: 0, minWidth: 64, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                gap: 3, padding: '10px 8px', textDecoration: 'none',
+                color: isActive ? '#00d0d8' : '#7a8599', fontSize: 9,
                 fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.3px',
-                transition: 'color .12s',
+                transition: 'color .12s', borderBottom: isActive ? '2px solid #00d0d8' : '2px solid transparent',
               }}>
                 <NavIcon name={item.icon} active={isActive} />
-                <span style={{ lineHeight: 1 }}>{item.label.slice(0, 8)}</span>
+                <span style={{ lineHeight: 1 }}>{shortLabels[item.label] || item.label.slice(0, 6)}</span>
               </Link>
             )
           })}
           <button onClick={handleSignOut} style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            gap: 4, padding: '10px 6px', border: 'none', background: 'none',
-            color: '#7a8599', fontSize: 10, fontFamily: 'var(--font-mono)',
+            flexShrink: 0, minWidth: 56, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            gap: 3, padding: '10px 8px', border: 'none', borderBottom: '2px solid transparent',
+            background: 'none', color: '#7a8599', fontSize: 9, fontFamily: 'var(--font-mono)',
             textTransform: 'uppercase', letterSpacing: '.3px', cursor: 'pointer',
           }}>
             <NavIcon name="logout" active={false} />
-            Quitter
+            Exit
           </button>
         </div>
       </nav>

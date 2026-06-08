@@ -207,7 +207,7 @@ function EquipmentCarousel({ equipments, interventions }: { equipments: Equipmen
         </div>
 
         {/* KPIs grille */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8, marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10 }}>
           {[
             { label: 'MTBF', value: mtbfDays !== null ? `${mtbfDays}j` : '—', color: mtbfColor },
             { label: 'MTTR', value: mttrStr, color: '#3c82e8' },
@@ -369,13 +369,13 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: isTech ? 'repeat(4,1fr)' : 'repeat(3,1fr) 1.4fr', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isTech ? 'repeat(2,1fr)' : 'repeat(2,1fr)', gap: 12, marginBottom: 20 }}>
           {[1,2,3,4].map(i => (
             <div key={i} style={{ height: 96, borderRadius: 12, background: 'rgba(255,255,255,.02)', border: '1px solid var(--b0)', animation: 'pulse 1.5s infinite' }} />
           ))}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: isTech ? 'repeat(4,1fr)' : 'repeat(3,1fr) 1.4fr', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isTech ? 'repeat(2,1fr)' : 'repeat(2,1fr)', gap: 12, marginBottom: 20 }}>
           {kpis.map((k, i) => <KpiCard key={i} {...k} />)}
           {!isTech && <ConformityRing rate={conformRate} done={done.length} />}
         </div>
