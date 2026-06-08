@@ -465,22 +465,26 @@ export default function StorePage() {
   const [showAdd, setShowAdd] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [localMoves, setLocalMoves] = useState<{partName:string;partRef:string;qty:number;date:string;tech:string;ot:string;type:string}[]>([])
 
   if (!user) return null
   const canEdit = user.role === 'admin' || user.role === 'chef'
 
-  // Mouvements calculés depuis les interventions du DataStore
-  const moves = useMemo(() =>
-    allInterventions.flatMap((i: any) =>
+  // Mouvements : interventions + mouvements manuels fusionnés
+  const moves = useMemo(() => {
+    const fromInts = allInterventions.flatMap((i: any) =>
       (i.parts_used || []).map((p: any) => ({
         partName: p.part?.name || '—',
+        partRef: p.part?.ref || '',
         qty: -(p.qty_used || 1),
         date: i.created_at?.split('T')[0] || today(),
         tech: i.technician?.name?.split(' ')[0] || '—',
         ot: i.title,
+        type: 'intervention',
       }))
-    ).sort((a: any, b: any) => b.date > a.date ? 1 : -1)
-  , [allInterventions])
+    )
+    return [...localMoves, ...fromInts].sort((a: any, b: any) => b.date > a.date ? 1 : -1)
+  }, [allInterventions, localMoves])
 
   const load = async () => { /* DataStore gère le rechargement */ }
   useEffect(() => {
@@ -492,6 +496,71 @@ export default function StorePage() {
   }, [])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
+
+  const exportBonCommande = () => {
+    const critical = stock.filter(p => p.qty <= p.min_qty && p.supplier)
+    const all_critical = stock.filter(p => p.qty <= p.min_qty)
+    const now = new Date().toLocaleDateString('fr-FR')
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Bon de commande — MaintaFood</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;margin:0;padding:0}
+  .header{background:#0a0b0c;color:#fff;padding:24px 32px;display:flex;align-items:center;justify-content:space-between}
+  .header-title{font-size:20px;font-weight:700}.header-title span{color:#00d0d8}
+  .sub{font-size:11px;color:#7a8599;margin-top:4px}
+  .section{padding:16px 32px}
+  .section-title{font-size:13px;font-weight:700;margin-bottom:8px;border-bottom:2px solid #e5e7eb;padding-bottom:4px;color:#374151}
+  table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:24px}
+  th{background:#f3f4f6;padding:6px 10px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e5e7eb;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+  td{padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top}
+  tr:nth-child(even) td{background:#f9fafb}
+  .crit{color:#dc2626;font-weight:700}
+  .sign{margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:32px}
+  .sign-box{border:1px solid #e5e7eb;border-radius:8px;padding:16px}
+  .sign-label{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:24px}
+  .footer{margin-top:24px;padding:12px 32px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="header">
+  <div><div class="header-title">MAINTA<span>FOOD</span></div><div class="sub">GMAO Agroalimentaire · Bon de commande pièces</div></div>
+  <div style="text-align:right;font-size:11px;color:#7a8599">Généré le ${now}<br/>${all_critical.length} référence(s) en stock critique</div>
+</div>
+<div class="section">
+  <div class="section-title">📦 Pièces à commander — Stock critique</div>
+  <table>
+    <thead><tr>
+      <th style="width:100px">Référence</th>
+      <th>Désignation</th>
+      <th style="width:80px">Catégorie</th>
+      <th style="width:70px">Stock actuel</th>
+      <th style="width:70px">Stock min.</th>
+      <th style="width:80px">Qté à commander</th>
+      <th>Fournisseur</th>
+      <th style="width:80px">Réf. four.</th>
+      <th style="width:90px">P.U. HTVA</th>
+      <th style="width:90px">Total estimé</th>
+    </tr></thead>
+    <tbody>
+      ${all_critical.map(p => {
+        const toOrder = Math.max(p.min_qty * 2, p.min_qty - p.qty + 1)
+        const total = p.price ? (toOrder * p.price).toFixed(2) + ' €' : '—'
+        return '<tr><td style="font-family:monospace;color:#0891b2">' + p.ref + '</td><td><strong>' + p.name + '</strong></td><td style="color:#6b7280">' + (p.category||'—') + '</td><td class="crit">' + p.qty + ' ' + p.unit + '</td><td style="color:#6b7280">' + p.min_qty + ' ' + p.unit + '</td><td style="font-weight:700;color:#059669">' + toOrder + ' ' + p.unit + '</td><td>' + (p.supplier||'—') + '</td><td style="font-family:monospace;font-size:10px;color:#6b7280">' + (p.supplier_ref||'—') + '</td><td style="font-family:monospace">' + (p.price ? p.price.toFixed(2)+' €' : '—') + '</td><td style="font-weight:700">' + total + '</td></tr>'
+      }).join('')}
+      <tr style="background:#f0fdf4"><td colspan="9" style="text-align:right;font-weight:700;padding:8px 10px">Total estimé HTVA</td><td style="font-weight:700;color:#059669">${all_critical.reduce((s,p) => { const toOrder = Math.max(p.min_qty*2, p.min_qty-p.qty+1); return s + (p.price ? toOrder*p.price : 0) }, 0).toFixed(2)} €</td></tr>
+    </tbody>
+  </table>
+  <div class="sign">
+    <div class="sign-box"><div class="sign-label">Demandé par</div><div style="height:40px"></div><div style="border-top:1px solid #e5e7eb;padding-top:6px;font-size:10px;color:#6b7280">Nom · Date · Signature</div></div>
+    <div class="sign-box"><div class="sign-label">Approuvé par</div><div style="height:40px"></div><div style="border-top:1px solid #e5e7eb;padding-top:6px;font-size:10px;color:#6b7280">Nom · Date · Signature</div></div>
+  </div>
+</div>
+<div class="footer"><span>MaintaFood GMAO · Agroalimentaire · Belgique 🇧🇪</span><span>Document généré — ${now}</span></div>
+</body></html>`
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(html); win.document.close(); win.focus()
+    setTimeout(() => win.print(), 500)
+  }
 
   const filtered = useMemo(() => stock.filter(p => {
     const q = search.toLowerCase()
@@ -511,11 +580,19 @@ export default function StorePage() {
 
   const handleAdjust = async (delta: number, reason: string, type: string) => {
     if (!showAdj) return
-    // Mise à jour locale immédiate (optimistic)
     const newQty = Math.max(0, showAdj.qty + delta)
     setLocalStock(stock.map(p => p.id === showAdj.id ? { ...p, qty: newQty } : p))
     if (selected?.id === showAdj.id) setSelected(s => s ? { ...s, qty: newQty } : s)
-    // Persistance Supabase
+    // Enregistrer dans l'historique local
+    setLocalMoves(prev => [{
+      partName: showAdj.name,
+      partRef: showAdj.ref,
+      qty: delta,
+      date: new Date().toISOString().split('T')[0],
+      tech: user.name || 'Moi',
+      ot: reason || type,
+      type,
+    }, ...prev])
     await partsApi.adjustStock(showAdj.id, newQty)
     await auditApi.log(user.id, delta > 0 ? 'Réception stock' : delta < 0 ? 'Consommation stock' : 'Inventaire', showAdj.name, `${delta > 0 ? '+' : ''}${delta} ${showAdj.unit} · ${reason}`)
     setShowAdj(null)
@@ -553,7 +630,14 @@ export default function StorePage() {
           <div className="page-title">📦 Magasin</div>
           <div className="page-sub">Pièces de rechange · Localisation · Fournisseurs</div>
         </div>
-        {canEdit && <button onClick={() => setShowAdd(true)} className="btn btn-primary">+ Référence</button>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {lowStock.length > 0 && canEdit && (
+            <button onClick={exportBonCommande} className="btn btn-ghost btn-sm" style={{ borderColor: 'rgba(255,71,87,.3)', color: '#ff4757' }}>
+              🛒 Bon de commande
+            </button>
+          )}
+          {canEdit && <button onClick={() => setShowAdd(true)} className="btn btn-primary">+ Référence</button>}
+        </div>
       </div>
 
       {/* Alertes */}
@@ -694,7 +778,9 @@ export default function StorePage() {
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.partName}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--t2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.ot} · {m.tech}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--t2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {(m as any).type === 'intervention' ? '🔧 ' : (m as any).type === 'add' ? '📦 ' : (m as any).type === 'order' ? '📋 ' : '📤 '}{m.ot} · {m.tech}
+                    </div>
                   </div>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--t2)', flexShrink: 0 }}>{m.date}</span>
                 </div>
