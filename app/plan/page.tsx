@@ -127,6 +127,7 @@ function EquipmentDetailModal({
   canManage,
   onClose,
   onCreateIntervention,
+  interventions = [],
   onStatusChange,
   onLinkPart,
   onUnlinkPart,
