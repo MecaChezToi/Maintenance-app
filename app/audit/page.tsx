@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/components/layout/AuthProvider'
 import AppLayout from '@/components/layout/AppLayout'
-import { auditApi, filesApi } from '@/lib/supabase'
+import { auditApi, filesApi, interventionsApi, preventiveApi } from '@/lib/supabase'
 import type { AuditLog } from '@/types'
 
 const fmtDT = (d: string) => d ? new Date(d).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
@@ -18,6 +18,8 @@ export default function AuditPage() {
   const [search, setSearch] = useState('')
   const [actionFilter, setActionFilter] = useState('all')
   const [error, setError] = useState<string | null>(null)
+  const [interventions, setInterventions] = useState<any[]>([])
+  const [preventivePlanning, setPreventivePlanning] = useState<any[]>([])
 
   const canUploadDocs = user?.role === 'admin' || user?.role === 'chef'
 
@@ -50,6 +52,8 @@ export default function AuditPage() {
     })
 
     loadDocuments()
+    interventionsApi.getAll().then(data => setInterventions(data)).catch(() => {})
+    preventiveApi.getUpcoming(365).then(data => setPreventivePlanning(data)).catch(() => {})
     return () => clearTimeout(t)
   }, [])
 
@@ -149,6 +153,114 @@ export default function AuditPage() {
     setTimeout(() => { win.print() }, 500)
   }
 
+  const exportRapportsPDF = () => {
+    const now = new Date().toLocaleDateString('fr-FR')
+    const signed = interventions.filter(i => i.signed_at && i.report_verdict)
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Rapports interventions — MaintaFood</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;margin:0;padding:0}
+  .header{background:#0a0b0c;color:#fff;padding:24px 32px;display:flex;align-items:center;justify-content:space-between}
+  .header-title{font-size:20px;font-weight:700}.header-title span{color:#00d0d8}
+  .header-sub{font-size:11px;color:#7a8599;margin-top:4px}
+  .badge{background:#0a2a2b;border:1px solid #00d0d8;color:#00d0d8;padding:6px 16px;margin:16px 32px;border-radius:6px;font-size:11px;display:inline-block}
+  .section{padding:8px 32px}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{background:#f3f4f6;padding:6px 10px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e5e7eb;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+  td{padding:7px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top}
+  tr:nth-child(even) td{background:#f9fafb}
+  .verdict-ok{color:#059669;font-weight:700}.verdict-warn{color:#d97706;font-weight:700}.verdict-ko{color:#dc2626;font-weight:700}
+  .footer{margin-top:24px;padding:12px 32px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="header">
+  <div><div class="header-title">MAINTA<span>FOOD</span></div><div class="header-sub">GMAO Agroalimentaire · Rapports d'interventions signés</div></div>
+  <div style="font-size:11px;color:#7a8599;text-align:right">Exporté le ${now}<br/>${signed.length} rapport(s) signé(s)</div>
+</div>
+<div class="badge">✅ Rapports signés numériquement — horodatés — conforme IFS Food v8 · BRC · ISO 22000</div>
+<div class="section">
+<table>
+  <thead><tr>
+    <th style="width:110px">Date signature</th>
+    <th>Intervention</th>
+    <th>Machine</th>
+    <th style="width:80px">Technicien</th>
+    <th style="width:80px">Durée</th>
+    <th style="width:90px">Verdict</th>
+    <th>Actions / Observations</th>
+  </tr></thead>
+  <tbody>
+    ${signed.map((i: any) => {
+      const verdict = i.report_verdict || '—'
+      const vClass = verdict === 'conforme' ? 'verdict-ok' : verdict === 'a_surveiller' ? 'verdict-warn' : 'verdict-ko'
+      const dur = i.report_duration ? Math.floor(i.report_duration/60)+'h'+String(i.report_duration%60).padStart(2,'0') : '—'
+      return '<tr><td style="font-family:monospace;font-size:10px;color:#6b7280">' + fmtDT(i.signed_at) + '</td><td><strong>' + (i.title||'—') + '</strong><br/><span style="font-size:10px;color:#6b7280">Signé par: ' + (i.signed_by||'—') + '</span></td><td style="font-size:11px">' + (i.equipment?.name||'—') + '</td><td style="font-size:11px">' + (i.technician?.name?.split(' ')[0]||'—') + '</td><td style="font-family:monospace">' + dur + '</td><td class="' + vClass + '">' + verdict + '</td><td style="font-size:11px;color:#374151">' + (i.report_actions||'—') + (i.report_observations ? '<br/><em style="color:#6b7280">' + i.report_observations + '</em>' : '') + '</td></tr>'
+    }).join('')}
+  </tbody>
+</table></div>
+<div class="footer"><span>MaintaFood GMAO · Agroalimentaire · Belgique 🇧🇪</span><span>Document généré — ${now}</span></div>
+</body></html>`
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(html); win.document.close(); win.focus()
+    setTimeout(() => win.print(), 500)
+  }
+
+  const exportPreventifPDF = () => {
+    const now = new Date().toLocaleDateString('fr-FR')
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Planning préventif — MaintaFood</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;margin:0;padding:0}
+  .header{background:#0a0b0c;color:#fff;padding:24px 32px;display:flex;align-items:center;justify-content:space-between}
+  .header-title{font-size:20px;font-weight:700}.header-title span{color:#00d0d8}
+  .header-sub{font-size:11px;color:#7a8599;margin-top:4px}
+  .badge{background:#0a2a2b;border:1px solid #00d0d8;color:#00d0d8;padding:6px 16px;margin:16px 32px;border-radius:6px;font-size:11px;display:inline-block}
+  .section{padding:8px 32px}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{background:#f3f4f6;padding:6px 10px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e5e7eb;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+  td{padding:7px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top}
+  tr:nth-child(even) td{background:#f9fafb}
+  .overdue{color:#dc2626;font-weight:700}.urgent{color:#d97706;font-weight:700}.soon{color:#2563eb;font-weight:700}.ok{color:#059669;font-weight:700}
+  .footer{margin-top:24px;padding:12px 32px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="header">
+  <div><div class="header-title">MAINTA<span>FOOD</span></div><div class="header-sub">GMAO Agroalimentaire · Planning maintenance préventive</div></div>
+  <div style="font-size:11px;color:#7a8599;text-align:right">Exporté le ${now}<br/>${preventivePlanning.length} tâche(s) planifiée(s)</div>
+</div>
+<div class="badge">🛠️ Planning préventif — conforme IFS Food v8 · BRC · ISO 22000</div>
+<div class="section">
+<table>
+  <thead><tr>
+    <th>Machine</th>
+    <th>Zone</th>
+    <th>Tâche</th>
+    <th style="width:90px">Fréquence</th>
+    <th style="width:100px">Dernière fois</th>
+    <th style="width:100px">Prochaine</th>
+    <th style="width:70px">Statut</th>
+    <th style="width:60px">Durée est.</th>
+  </tr></thead>
+  <tbody>
+    ${preventivePlanning.map((p: any) => {
+      const urgencyClass = p.urgency || 'ok'
+      const urgencyLabel = {overdue:'En retard',urgent:'Urgent',soon:'Bientôt',ok:'Planifié'}[p.urgency as string] || p.urgency
+      const lastDone = p.last_done_at ? new Date(p.last_done_at).toLocaleDateString('fr-FR') : '—'
+      const nextDue = p.next_due_at ? new Date(p.next_due_at).toLocaleDateString('fr-FR') : '—'
+      const dur = p.estimated_minutes ? Math.floor(p.estimated_minutes/60)+'h'+String(p.estimated_minutes%60).padStart(2,'0') : '—'
+      return '<tr><td><strong>' + (p.equipment_name||'—') + '</strong>' + (p.requires_stop ? '<br/><span style="color:#d97706;font-size:10px">⚠ Arrêt requis</span>' : '') + '</td><td style="font-family:monospace">Zone ' + (p.equipment_zone||'—') + '</td><td>' + (p.task_name||'—') + '</td><td style="font-family:monospace">/' + (p.interval_days||'?') + 'j</td><td style="color:#6b7280">' + lastDone + '</td><td style="font-weight:600">' + nextDue + '</td><td class="' + urgencyClass + '">' + urgencyLabel + '</td><td style="font-family:monospace">' + dur + '</td></tr>'
+    }).join('')}
+  </tbody>
+</table></div>
+<div class="footer"><span>MaintaFood GMAO · Agroalimentaire · Belgique 🇧🇪</span><span>Document généré — ${now}</span></div>
+</body></html>`
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(html); win.document.close(); win.focus()
+    setTimeout(() => win.print(), 500)
+  }
+
   const uploadDocuments = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setUploading(true)
@@ -173,11 +285,17 @@ export default function AuditPage() {
           <div className="page-title">Journal d'audit</div>
           <div className="page-sub">Traçabilité complète — conforme IFS Food v8 · BRC · ISO 22000</div>
         </div>
-        {logs.length > 0 && (
-          <button onClick={exportPDF} className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
-            📄 Exporter PDF
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {logs.length > 0 && (
+            <button onClick={exportPDF} className="btn btn-ghost btn-sm">📋 Journal PDF</button>
+          )}
+          {interventions.filter((i: any) => i.signed_at).length > 0 && (
+            <button onClick={exportRapportsPDF} className="btn btn-ghost btn-sm" style={{ borderColor: 'rgba(0,208,216,.3)', color: '#00d0d8' }}>✅ Rapports signés</button>
+          )}
+          {preventivePlanning.length > 0 && (
+            <button onClick={exportPreventifPDF} className="btn btn-ghost btn-sm" style={{ borderColor: 'rgba(124,58,237,.3)', color: '#a855f7' }}>🛠️ Planning préventif</button>
+          )}
+        </div>
       </div>
 
       <div style={{ padding: '10px 14px', background: 'rgba(0,208,216,.06)', border: '1px solid rgba(0,208,216,.2)', borderRadius: 8, fontSize: 12.5, color: '#00d0d8', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
