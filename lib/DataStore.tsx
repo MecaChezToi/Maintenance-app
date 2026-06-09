@@ -57,15 +57,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Charger depuis le cache IndexedDB (instant)
   const loadFromCache = useCallback(async () => {
     try {
-      const [equipments, interventions] = await Promise.all([
+      const [equipments, interventions, cachedProfiles] = await Promise.all([
         offlineCache.getEquipments(),
         offlineCache.getInterventions(),
+        offlineCache.getMeta('profiles_cache').catch(() => null),
       ])
       if (equipments.length > 0 || interventions.length > 0) {
         setState(s => ({
           ...s,
           equipments: equipments as Equipment[],
           interventions: interventions as Intervention[],
+          technicians: cachedProfiles ? (cachedProfiles as Profile[]).filter((p: Profile) => p.active !== false) : s.technicians,
           loading: false,
           isOffline: !networkStatus.isOnline(),
         }))
@@ -113,6 +115,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       // Sauvegarder en cache offline
       if (equipments.length > 0) offlineCache.saveEquipments(equipments).catch(() => {})
       if (interventions.length > 0) offlineCache.saveInterventions(interventions).catch(() => {})
+      if (profiles.length > 0) offlineCache.setMeta('profiles_cache', profiles).catch(() => {})
 
       // Lancer sync si pending writes
       const pending = await pendingWrites.count()
