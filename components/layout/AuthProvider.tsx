@@ -108,21 +108,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    let initialized = false
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Nettoyer automatiquement si token expiré ou invalide
-      if (event === 'TOKEN_REFRESHED') {
-        console.log('[Auth] Token rafraîchi')
-      }
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setOrganization(null)
         sessionStorage.clear()
         stopKeepAlive()
-        // Nettoyer localStorage des tokens expirés
         Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
         setLoading(false)
         return
       }
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('[Auth] Token rafraîchi')
+        return
+      }
+
+      // Skip si getSession() n'a pas encore initialisé
+      if (!initialized) return
+
       setSession(session)
       if (session?.user) {
         await loadProfile(session.user.id, session.access_token)
@@ -135,9 +140,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
+    // getSession() = seul point d'initialisation
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      initialized = true
+
       if (error) {
-        // Token invalide ou expiré — nettoyer et laisser l'utilisateur se reconnecter
         console.warn('[Auth] Session invalide, nettoyage...')
         Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
         sessionStorage.clear()
@@ -150,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false)
     }).catch(() => {
-      // En cas d'erreur réseau, nettoyer quand même
+      initialized = true
       Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
       sessionStorage.clear()
       setLoading(false)
