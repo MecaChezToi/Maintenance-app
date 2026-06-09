@@ -455,7 +455,7 @@ export default function DashboardPage() {
               {[
                 { label: 'Durée moy.', value: avgDur ? `${avgDur}min` : '—', color: '#3c82e8' },
                 { label: 'Valeur stock', value: stockVal ? `${stockVal.toFixed(0)}€` : '—', color: '#f59e0b' },
-                { label: 'Rapports signés', value: done.length, color: '#a855f7' },
+                { label: 'Rapports signés', value: interventions.filter(i => i.report_verdict).length, color: '#a855f7' },
               ].map((s, i) => (
                 <div key={i} style={{ background: 'var(--s2)', border: '1px solid var(--b0)', borderRadius: 10, padding: '12px 14px' }}>
                   <div style={{ fontSize: 20, fontWeight: 800, color: s.color, fontFamily: 'var(--font-mono)' }}>{s.value}</div>
