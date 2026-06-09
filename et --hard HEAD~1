@@ -1,0 +1,113 @@
+[33m431892c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m test
+[33m7273ec4[m fix stoe mobile
+[33mf3d6a4a[m store up1
+[33md9d225c[m mdp perdu ajout
+[33ma21bbfa[m up audit
+[33m45e6b0d[m fix kpi plan1
+[33m72bf5f6[m ajout kpi sur plan machine
+[33m6ed232f[m fix landing mobile4
+[33mc69f5cb[m fix landign mobil3
+[33mfd3e070[m fix langing mobile2
+[33m40abae1[m fix landing mobile
+[33m24e7439[m up3 landing mobile
+[33mb4e8ed7[m up 2 landing mobile
+[33mdfbdffd[m modif landing mobile
+[33md5711f2[m fix mobile
+[33m22b2f3f[m up audit pdf
+[33m5851e5a[m  fix audit
+[33ma17744e[m fix vhargement
+[33m78ed4f5[m fix data
+[33m6db3d8c[m fix decrease stock inter
+[33m4ab1c51[m up landing2
+[33m49828ce[m up landing
+[33maa181c6[m global up
+[33m3f393da[m modif couleur 1
+[33m171150b[m  fix color
+[33mfa98cdd[m logo add layout
+[33m727fc27[m fix logo 4
+[33mb8278af[m fix logo 3
+[33m28ab77a[m taille logo 2
+[33md7466d3[m taille logo
+[33m4838fff[m landing modifs color
+[33me75e4ad[m ajout logo dash
+[33ma15c972[m fix middleware auth + disable SW
+[33m1d3af4c[m ajout kpi dash
+[33mcf574e3[m fix oflline
+[33m29e0e7e[m ping surpwa
+[33m56e4cdb[m fix error off
+[33mfad911e[m fix ofline2
+[33m9c4e455[m fix: rename offline files case
+[33mca2cb89[m fix offline
+[33mcda3f56[m ajout pwa offline
+[33md912b08[m fix prev
+[33m7a8f3e0[m ajout préventif
+[33m7a3179b[m fix statut
+[33m7cb412f[m fix changement statut
+[33m94dba20[m fix deco
+[33m8c8dc6b[m fix deco
+[33m7034e3f[m fix qrcode+ deconexion
+[33md29112a[m ajout focntion qr code
+[33m5d6722b[m fix service worker
+[33m68d735d[m fix sw time refresh
+[33m8b008ef[m fix auth
+[33mec52553[m fix statut
+[33m389bfa0[m fix plan
+[33mbd9e363[m ajout modif equip
+[33m7eac31a[m fix taille
+[33m534be66[m ajout modif equip fab num serie
+[33m69cfff9[m fix ajout intervention
+[33ma91e571[m fix allow tech
+[33m06104a8[m fix photo
+[33m09f022d[m fix photo
+[33m6ae8fa1[m fix qr code+photo
+[33m0324c8d[m fix scroll3
+[33m8c95d37[m fix global
+[33m4ef6f90[m fix scroll
+[33me6340a5[m fix plan+intervention+scroll
+[33m116d905[m fix
+[33mf097b73[m fix scroll
+[33m5c51f1e[m up global scroll
+[33m6805138[m fix scroll
+[33m2a81f87[m fix data
+[33mef149c7[m fix datastore
+[33m1f860ec[m fix layout
+[33m0341a99[m archivachge + fix scroll
+[33mbecfc72[m fixplan v3
+[33m273ccc3[m modfi plan v2
+[33mcdebf2f[m fix data
+[33m881fbda[m fix data cache
+[33m538cb18[m fix plan
+[33m201872e[m fix plan + rapidité
+[33m7ab6840[m update v1.1.0 qr code +plan machine
+[33m1fe0f32[m modif ping
+[33md52176f[m ping supa
+[33meee3970[m fix intervention
+[33mbe79e66[m logo+nom
+[33m676202b[m fix connexion
+[33m7dcd3b7[m fix 4
+[33m347baf5[m refresh fix 3
+[33m27e5846[m refresh fix 2
+[33m788f547[m fix refresh
+[33m61a9741[m opti refresh
+[33m88cbaec[m ajout intervention complete
+[33mb2bb61e[m ajout multi tenant
+[33m2632484[m fix login
+[33m471ff0d[m fix refresh
+[33mf4787a7[m v1.0.2
+[33mc6da23e[m test
+[33mdccd39b[m v1.0.2
+[33m1c0aee4[m v1.0.1
+[33m40b119b[m v1.0.0
+[33m72163aa[m Fix infinite loading: ensure profile on login + add auth.users trigger
+[33m2b2536d[m Add PDF print from intervention report
+[33mb29a353[m Integrate MaintaFood UI (auth, nav icons, dashboard widgets)
+[33me7f3736[m Ignore local middleware.ts
+[33m74d120c[m Add MaintaFood landing assets
+[33mf767b50[m Add landing start page and keep MaintaFood files without breaking build
+[33m45ab448[m ajout role manager
+[33m77d8b06[m Add missing PWA icon sizes
+[33m1252fb3[m Fix users creation, storage bucket, preventive maintenance, mobile UI
+[33me2fd1e8[m Add PWA icons + fix icon paths
+[33mb98374e[m Fix RLS interventions (created_by) + storage policies (audit/docs)
+[33m1db9b61[m Corrections bugs + améliorations: interventions, plan, audit, paramètres, magasin, HTVA/TVAC, compatibilité machine ↔ pièce
+[33m2dda7e9[m initial commit
