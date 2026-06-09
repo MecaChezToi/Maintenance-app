@@ -270,8 +270,8 @@ function ReportForm({ interv, equipment, user, onSave, onClose }: any) {
 
 // ─── NOUVELLE INTERVENTION ───────────────────────────────────
 function NewIntModal({ equipments, technicians, user, onClose, onSave, error, onReload }: any) {
-  const [form, setForm] = useState<{ title: string; equipment_id: string; technician_id: string; priority: 'normale'|'haute'|'critique'; description: string; food_impact: boolean; production_stopped: boolean }>({
-    title: '', equipment_id: '', technician_id: user.role === 'technician' ? user.id : '',
+  const [form, setForm] = useState<{ title: string; equipment_id: string; equipment_other?: string; technician_id: string; priority: 'normale'|'haute'|'critique'; description: string; food_impact: boolean; production_stopped: boolean }>({
+    title: '', equipment_id: '', equipment_other: '', technician_id: user.role === 'technician' ? user.id : '',
     priority: 'normale', description: '', food_impact: false, production_stopped: false
   })
   const [saving, setSaving] = useState(false)
@@ -287,9 +287,13 @@ function NewIntModal({ equipments, technicians, user, onClose, onSave, error, on
 
   const save = async () => {
     if (!form.title || !form.equipment_id) return
+    if (form.equipment_id === '__other__' && !form.equipment_other?.trim()) return
     setSaving(true)
     try {
-      await onSave({ ...form, created_by: user.id })
+      const payload = form.equipment_id === '__other__'
+        ? { ...form, equipment_id: null, equipment_name_free: form.equipment_other, created_by: user.id }
+        : { ...form, created_by: user.id }
+      await onSave(payload)
       auditApi.log(user.id, 'Intervention créée', form.title, `Équipement: ${eq?.name}`)
       onClose() // seulement si onSave() a réussi
     } catch {
@@ -317,7 +321,11 @@ function NewIntModal({ equipments, technicians, user, onClose, onSave, error, on
               <select className="form-input" value={form.equipment_id} onChange={e => s('equipment_id', e.target.value)}>
                 <option value="">{equipments.length === 0 ? 'Chargement...' : 'Sélectionner...'}</option>
                 {equipments.map((e: Equipment) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                <option value="__other__">✏️ Autre (saisie libre)...</option>
               </select>
+              {form.equipment_id === '__other__' && (
+                <input className="form-input" style={{ marginTop: 6 }} placeholder="Nom de l'équipement / objet / zone..." value={form.equipment_other || ''} onChange={e => s('equipment_other', e.target.value)} />
+              )}
             </div>
             {user.role !== 'technician' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -354,7 +362,7 @@ function NewIntModal({ equipments, technicians, user, onClose, onSave, error, on
         </div>
         <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,.04)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
           <button onClick={onClose} style={iS}>Annuler</button>
-          <button onClick={save} disabled={!form.title || !form.equipment_id || saving} style={{ background: (!form.title || !form.equipment_id) ? 'rgba(255,255,255,.1)' : '#00d0d8', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={save} disabled={!form.title || !form.equipment_id || (form.equipment_id === '__other__' && !form.equipment_other?.trim()) || saving} style={{ background: (!form.title || !form.equipment_id) ? 'rgba(255,255,255,.1)' : '#00d0d8', color: '#000', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             {saving ? 'Création...' : '✓ Créer'}
           </button>
         </div>
