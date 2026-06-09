@@ -155,11 +155,11 @@ export default function UsersPage() {
               <div className="grid-2">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <label className="form-label">Email *</label>
-                  <input className="form-input" value={form.email} onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))} placeholder="ex: jean@entreprise.com" />
+                  <input className="form-input" value={form.email} onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))} placeholder="ex: jean@entreprise.com" autoComplete="off" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <label className="form-label">Mot de passe *</label>
-                  <input className="form-input" type="password" value={form.password} onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} placeholder="min 6 caractères" />
+                  <input className="form-input" type="password" value={form.password} onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} placeholder="min 6 caractères" autoComplete="new-password" />
                 </div>
               </div>
 
