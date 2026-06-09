@@ -23,20 +23,22 @@ export const offlineInterventionsApi = {
       status: payload.status || 'a_faire',
     } as Intervention
 
+    // Toujours essayer Supabase si online
     if (networkStatus.isOnline()) {
-      // En ligne → Supabase directement
       try {
         const created = await interventionsApi.create(payload)
         if (created) {
           await offlineCache.saveInterventions([created])
           return created
         }
-      } catch (e) {
-        console.warn('[OfflineAPI] Supabase failed, saving offline')
+      } catch (e: any) {
+        // Erreur réseau → fallback offline automatique
+        console.warn('[OfflineAPI] Supabase failed, fallback offline:', e?.message)
       }
     }
 
-    // Offline → sauvegarder localement + queue
+    // Offline ou erreur réseau → sauvegarder localement + queue
+    console.log('[OfflineAPI] Sauvegarde offline:', intervention.id)
     const cached = await offlineCache.getInterventions()
     await offlineCache.saveInterventions([intervention, ...cached])
     await pendingWrites.add('interventions', 'insert', intervention)
@@ -53,12 +55,13 @@ export const offlineInterventionsApi = {
       try {
         await interventionsApi.updateStatus(id, status)
         return
-      } catch (e) {
-        console.warn('[OfflineAPI] Supabase failed, saving offline')
+      } catch (e: any) {
+        console.warn('[OfflineAPI] updateStatus Supabase failed, fallback offline:', e?.message)
       }
     }
 
-    // Offline → queue
+    // Offline ou erreur réseau → queue
+    console.log('[OfflineAPI] updateStatus offline:', id, status)
     await pendingWrites.add('interventions', 'update', update)
     await syncManager.notifyPending()
   },
