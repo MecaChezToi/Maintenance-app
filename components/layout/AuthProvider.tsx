@@ -38,23 +38,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const startKeepAlive = () => {
     if (keepAliveRef.current) clearInterval(keepAliveRef.current)
     keepAliveRef.current = setInterval(async () => {
-      // Ping pour garder la connexion active
-      supabase.from('profiles').select('id').limit(1).then(() => {}, () => {})
-      // Forcer le rafraîchissement du token toutes les 50 minutes
       const { data: { session: currentSession } } = await supabase.auth.getSession()
-      if (currentSession) {
-        const exp = currentSession.expires_at || 0
-        const now = Math.floor(Date.now() / 1000)
-        // Rafraîchir si le token expire dans moins de 15 minutes
-        if (exp - now < 15 * 60) {
-          console.log('[Auth] Token proche expiration — rafraîchissement...')
-          const { error } = await supabase.auth.refreshSession()
-          if (error) {
-            console.warn('[Auth] Échec rafraîchissement — nettoyage')
-            clearAllTokens()
-          } else {
-            console.log('[Auth] ✅ Token rafraîchi')
-          }
+      if (!currentSession) return
+      const exp = currentSession.expires_at || 0
+      const now = Math.floor(Date.now() / 1000)
+      // Rafraîchir si le token expire dans moins de 30 minutes
+      if (exp - now < 30 * 60) {
+        const { data, error } = await supabase.auth.refreshSession()
+        if (error) {
+          console.warn('[Auth] Échec rafraîchissement — nettoyage')
+          clearAllTokens()
+        } else if (data.session) {
+          setSession(data.session)
+          console.log('[Auth] ✅ Token rafraîchi')
         }
       }
     }, 4 * 60 * 1000) // toutes les 4 minutes
@@ -122,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (event === 'TOKEN_REFRESHED') {
         console.log('[Auth] Token rafraîchi')
+        if (session) setSession(session)
         return
       }
 
